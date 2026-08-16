@@ -1,0 +1,63 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    match /publico/{documentId} {
+      allow read: if documentId == 'rifa';
+      allow write: if false;
+    }
+
+    match /usuarios/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if isOwner(uid)
+        && request.resource.data.uid == resource.data.uid;
+      allow delete: if false;
+    }
+
+    match /pedidos/{pedidoId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /compras/{compraId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // A disponibilidade real, os números premiados e os documentos de cotas
+    // nunca são expostos ao navegador. As funções usam Admin SDK.
+    match /cotas/{numeroId} {
+      allow read, write: if false;
+    }
+
+    match /disponibilidade/{shardId} {
+      allow read, write: if false;
+    }
+
+    match /numerosPremiados/{numeroId} {
+      allow read, write: if false;
+    }
+
+    match /configuracoes/{documentId} {
+      allow read, write: if false;
+    }
+
+    match /estado/{documentId} {
+      allow read, write: if false;
+    }
+
+    match /auditoriaGeracoes/{documentId} {
+      allow read, write: if false;
+    }
+  }
+}

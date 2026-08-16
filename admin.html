@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel administrativo | Kóòpremios</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root { --gold:#d4af37; --gold-light:#fced9e; --bg:#081021; --surface:#0f172a; --muted:#a8a8b3; --error:#ff8b8b; }
+    * { box-sizing: border-box; font-family: Poppins, sans-serif; }
+    body { margin:0; min-height:100vh; background:var(--bg); color:#e1e1e6; }
+    main { width:min(100% - 32px, 1000px); margin:32px auto; }
+    .card { background:var(--surface); border:1px solid rgba(212,175,55,.24); border-radius:14px; padding:24px; margin-bottom:20px; box-shadow:0 12px 34px rgba(0,0,0,.35); }
+    h1,h2 { margin-top:0; color:var(--gold-light); }
+    h1 { font-size:1.7rem; }
+    h2 { font-size:1.1rem; border-bottom:1px solid rgba(212,175,55,.2); padding-bottom:10px; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    label { display:block; color:var(--muted); font-size:.8rem; margin-bottom:5px; }
+    input,select,button { width:100%; padding:11px 12px; border-radius:8px; border:1px solid rgba(212,175,55,.3); }
+    input,select { background:var(--bg); color:#e1e1e6; }
+    button { background:linear-gradient(135deg,#8a631c,#d4af37,#fced9e); color:#000; font-weight:800; cursor:pointer; }
+    button.secondary { background:transparent; color:var(--gold-light); }
+    button:disabled { opacity:.6; cursor:wait; }
+    .actions { display:flex; gap:10px; margin-top:16px; }
+    .actions button { flex:1; }
+    .message { padding:11px 12px; border-radius:8px; background:rgba(212,175,55,.1); color:var(--gold-light); margin-bottom:14px; }
+    .message.error { background:rgba(255,107,107,.1); color:var(--error); }
+    .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    .stat { padding:13px; border-radius:9px; background:rgba(255,255,255,.03); }
+    .stat small { display:block; color:var(--muted); font-size:.75rem; }
+    .stat strong { display:block; margin-top:4px; font-size:1.15rem; color:var(--gold-light); }
+    .numbers { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; margin-top:14px; }
+    .number { padding:8px; text-align:center; border:1px solid rgba(212,175,55,.23); border-radius:7px; color:var(--gold-light); font-weight:700; }
+    @media(max-width:700px) { .grid,.stats { grid-template-columns:1fr 1fr; } }
+    @media(max-width:460px) { .grid,.stats { grid-template-columns:1fr; } .actions { flex-direction:column; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="card">
+      <h1>Painel administrativo</h1>
+      <p style="color:var(--muted);">Área restrita. A autorização é conferida no backend por UID/claim de administrador.</p>
+      <div id="message" class="message" hidden></div>
+      <div class="stats">
+        <div class="stat"><small>Vendidos</small><strong id="sold">0</strong></div>
+        <div class="stat"><small>Reservados</small><strong id="reserved">0</strong></div>
+        <div class="stat"><small>Meta atual</small><strong id="target">0</strong></div>
+        <div class="stat"><small>Status</small><strong id="status">—</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Configuração da campanha</h2>
+      <div class="grid">
+        <div><label for="targetInput">Meta de números vendidos</label><input id="targetInput" type="number" min="1" max="150000" value="150000"></div>
+        <div><label for="statusInput">Status</label><select id="statusInput"><option value="preparacao">Preparação</option><option value="aberta">Aberta</option><option value="encerrada">Encerrada</option></select></div>
+      </div>
+      <div class="actions"><button id="saveConfig">Salvar configuração</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Números premiados</h2>
+      <p style="color:var(--muted);">Esses números não são consultáveis pelo frontend público. A lista abaixo só aparece se o backend reconhecer o usuário como administrador.</p>
+      <div class="actions"><button id="loadWinners">Carregar números</button><button id="loadMore" class="secondary" hidden>Carregar mais</button></div>
+      <div id="numbers" class="numbers"></div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { auth, functions, httpsCallable, onAuthStateChanged } from './firebase-client.js';
+
+    const getPublicRaffleState = httpsCallable(functions, 'getPublicRaffleState');
+    const updateRaffleConfig = httpsCallable(functions, 'updateRaffleConfig');
+    const getWinningNumbers = httpsCallable(functions, 'getWinningNumbers');
+    let lastNumber = '';
+
+    const message = document.getElementById('message');
+    function showMessage(text, error = false) {
+      message.hidden = false;
+      message.textContent = text;
+      message.classList.toggle('error', error);
+    }
+
+    async function loadState() {
+      const result = await getPublicRaffleState();
+      const data = result.data || {};
+      document.getElementById('sold').textContent = Number(data.soldNumbers || 0).toLocaleString('pt-BR');
+      document.getElementById('reserved').textContent = Number(data.reservedNumbers || 0).toLocaleString('pt-BR');
+      document.getElementById('target').textContent = Number(data.targetSoldNumbers || 0).toLocaleString('pt-BR');
+      document.getElementById('status').textContent = data.status || '—';
+      document.getElementById('targetInput').value = data.targetSoldNumbers || 150000;
+      document.getElementById('statusInput').value = data.status || 'preparacao';
+    }
+
+    async function saveConfig() {
+      const button = document.getElementById('saveConfig');
+      button.disabled = true;
+      try {
+        await updateRaffleConfig({
+          targetSoldNumbers: Number(document.getElementById('targetInput').value),
+          status: document.getElementById('statusInput').value,
+        });
+        await loadState();
+        showMessage('Configuração salva.');
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || 'Não foi possível salvar.', true);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function loadWinners(clear = true) {
+      const button = document.getElementById('loadWinners');
+      button.disabled = true;
+      try {
+        const result = await getWinningNumbers({ pageSize: 200, startAfter: clear ? '' : lastNumber });
+        const data = result.data || {};
+        const container = document.getElementById('numbers');
+        if (clear) container.replaceChildren();
+        for (const number of data.numbers || []) {
+          const item = document.createElement('div');
+          item.className = 'number';
+          item.textContent = String(number).padStart(6, '0');
+          container.appendChild(item);
+        }
+        lastNumber = data.nextStartAfter || '';
+        document.getElementById('loadMore').hidden = !data.hasMore;
+        showMessage(`${container.children.length.toLocaleString('pt-BR')} números carregados.`);
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || 'Não foi possível carregar a lista.', true);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    document.getElementById('saveConfig').addEventListener('click', saveConfig);
+    document.getElementById('loadWinners').addEventListener('click', () => loadWinners(true));
+    document.getElementById('loadMore').addEventListener('click', () => loadWinners(false));
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = 'login.html?returnTo=admin.html';
+        return;
+      }
+      try {
+        await loadState();
+      } catch (error) {
+        showMessage('Usuário autenticado, mas sem permissão administrativa.', true);
+      }
+    });
+  </script>
+</body>
+</html>

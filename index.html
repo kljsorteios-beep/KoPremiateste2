@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kóòpremios | Rifa Premium</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* ==============================
+            Variáveis e Reset
+            ============================== */
+        :root {
+            --gold-dark: #8a631c;
+            --gold-mid: #d4af37;
+            --gold-light: #fced9e;
+            
+            --gold-gradient: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-mid) 25%, var(--gold-light) 50%, var(--gold-mid) 75%, var(--gold-dark) 100%);
+            --gold-gradient-hover: linear-gradient(135deg, var(--gold-mid) 0%, var(--gold-light) 30%, #ffffff 50%, var(--gold-light) 70%, var(--gold-mid) 100%);
+            
+            --primary: #d4af37; 
+            
+            --bg-color: #081021; 
+            --surface-color: #0f172a; 
+            --surface-hover: #1e293b; 
+            --text-color: #e1e1e6;
+            --text-muted: #a8a8b3;
+            --radius: 8px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            scroll-behavior: smooth;
+        }
+
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+        button { cursor: pointer; border: none; outline: none; }
+
+        .text-gold {
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            display: inline-block;
+            text-shadow: 0px 4px 15px rgba(212, 175, 55, 0.3);
+        }
+
+        header.navbar {
+            background-color: rgba(8, 16, 33, 0.95);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0; width: 100%;
+            z-index: 100;
+            border-bottom: 1px solid var(--surface-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+        }
+
+        .logo {
+            font-size: 26px;
+            font-weight: 900;
+            color: var(--text-color);
+            letter-spacing: 1px;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-actions .btn-login {
+            background: transparent;
+            color: var(--text-color);
+            font-weight: 600;
+            padding: 10px 20px;
+            margin-right: 10px;
+            font-size: 15px;
+            border-radius: var(--radius);
+            transition: var(--transition);
+        }
+
+        .nav-actions .btn-login:hover {
+            background: var(--surface-hover);
+        }
+
+        .nav-actions .btn-primary {
+            background: var(--gold-gradient);
+            color: #000;
+            font-weight: 700;
+            padding: 10px 24px;
+            border-radius: var(--radius);
+            transition: var(--transition);
+            background-size: 200% auto;
+            font-size: 15px;
+            display: inline-block;
+        }
+
+        .nav-actions .btn-primary:hover {
+            background-position: right center;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4);
+        }
+
+        .nav-actions button.btn-primary:disabled,
+        .btn-participar:disabled {
+            opacity: 0.65;
+            cursor: wait;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .nav-actions .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: wait;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .hero {
+            margin-top: 70px;
+            padding: 60px 0;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            color: var(--text-color);
+            font-weight: 900;
+        }
+
+        .hero p.subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .prize-image-container {
+            max-width: 680px;
+            margin: 0 auto 30px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            position: relative;
+            aspect-ratio: 3 / 4;
+            background: var(--surface-color);
+            display: block;
+            cursor: pointer;
+            border: 2px solid rgba(212, 175, 55, 0.3);
+            transition: var(--transition);
+        }
+
+        .prize-image-container:hover {
+            border-color: var(--primary);
+            transform: scale(1.01);
+            box-shadow: 0 20px 40px rgba(212, 175, 55, 0.3);
+        }
+
+        .prize-image-container img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+
+        .fullscreen-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 42px;
+            height: 42px;
+            background: rgba(8, 16, 33, 0.7);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gold-light);
+            z-index: 6;
+            transition: var(--transition);
+            backdrop-filter: blur(4px);
+        }
+
+        .fullscreen-btn:hover {
+            background: rgba(8, 16, 33, 0.95);
+            border-color: var(--primary);
+            transform: scale(1.08);
+        }
+
+        .moto-info-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(8, 16, 33, 0.95) 20%, rgba(8, 16, 33, 0.7) 70%, transparent 100%);
+            padding: 25px 20px 20px;
+            text-align: left;
+        }
+
+        .moto-info-overlay h3 {
+            font-size: 1.5rem;
+            color: var(--text-color);
+            margin-bottom: 6px;
+            font-weight: 900;
+        }
+
+        .fipe-tag {
+            display: inline-block;
+            background: rgba(212, 175, 55, 0.2);
+            color: var(--gold-light);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            border: 1px solid rgba(212, 175, 55, 0.4);
+        }
+
+        .moto-info-overlay p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .click-hint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-premium {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--gold-gradient);
+            color: #000;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-weight: 900;
+            font-size: 14px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
+            letter-spacing: 1px;
+            z-index: 5;
+        }
+
+        .progress-wrapper {
+            max-width: 600px;
+            margin: 0 auto 30px;
+            text-align: left;
+        }
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+        }
+        .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 8px;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 14px;
+            background: #040812;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--gold-gradient);
+            width: 0%; 
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+            background-size: 200% auto;
+            animation: shine 3s linear infinite;
+        }
+
+        @keyframes shine {
+            to { background-position: 200% center; }
+        }
+
+        .buy-section {
+            padding: 50px 0;
+            background: var(--surface-color);
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.2rem;
+            margin-bottom: 40px;
+            font-weight: 700;
+        }
+
+        .gallery-container {
+            max-width: 1000px;
+            margin: 0 auto 50px;
+            text-align: center;
+        }
+
+        .gallery-container h3 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .gallery-item {
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 4 / 3;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--bg-color);
+            position: relative;
+        }
+
+        .gallery-item:hover {
+            border-color: var(--primary);
+            transform: translateY(-4px);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .gallery-item .expand-icon {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 30px;
+            height: 30px;
+            background: rgba(8, 16, 33, 0.75);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gold-light);
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .gallery-item:hover .expand-icon {
+            opacity: 1;
+        }
+
+        /* ==============================
+            ESTILO DAS COTAS (DESIGN SOLICITADO)
+            ============================== */
+        .cotas-wrapper {
+            max-width: 550px;
+            margin: 0 auto;
+        }
+
+        .cotas-subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        .cotas-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .cota-card {
+            background: #040812;
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 10px;
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            user-select: none;
+        }
+
+        .cota-card:hover, .cota-card.selected {
+            border-color: var(--primary);
+            background: rgba(212, 175, 55, 0.05);
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.15);
+        }
+
+        .cota-qty {
+            font-size: 1.6rem;
+            font-weight: 900;
+            line-height: 1.1;
+        }
+
+        .cota-price {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 4px 0 6px;
+        }
+
+        .cota-action {
+            color: var(--text-color);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .cotas-checkout-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .qty-selector {
+            display: flex;
+            align-items: center;
+            background: #040812;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 8px;
+            padding: 4px;
+            flex: 1;
+            height: 52px;
+        }
+
+        .qty-btn {
+            background: transparent;
+            border: none;
+            color: var(--gold-light);
+            font-size: 1.4rem;
+            width: 40px;
+            height: 100%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .qty-btn:hover {
+            color: var(--primary);
+        }
+
+        .qty-selector input {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            text-align: center;
+            font-size: 1.15rem;
+            font-weight: 700;
+            width: 100%;
+            outline: none;
+        }
+
+        .qty-selector input::-webkit-outer-spin-button,
+        .qty-selector input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .btn-participar {
+            background: var(--gold-gradient);
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            flex: 1.3;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+            background-size: 200% auto;
+        }
+
+        .btn-participar:hover {
+            background-position: right center;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4);
+        }
+
+        .purchase-message {
+            margin: 16px 0;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(212, 175, 55, 0.35);
+            background: rgba(212, 175, 55, 0.08);
+            color: var(--gold-light);
+            font-size: 0.85rem;
+        }
+        .purchase-message[data-type="error"] {
+            border-color: rgba(255, 107, 107, 0.45);
+            background: rgba(255, 107, 107, 0.08);
+            color: #ffb4b4;
+        }
+        .purchase-message[data-type="warning"] {
+            border-color: rgba(245, 158, 11, 0.45);
+            background: rgba(245, 158, 11, 0.08);
+            color: #fcd34d;
+        }
+        .pix-order-panel {
+            margin-top: 22px;
+            padding: 20px;
+            border: 1px solid rgba(212, 175, 55, 0.35);
+            border-radius: 12px;
+            background: rgba(4, 8, 18, 0.7);
+            text-align: center;
+        }
+        .pix-order-panel h3 {
+            color: var(--gold-light);
+            margin-bottom: 10px;
+        }
+        .pix-order-summary {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 14px;
+        }
+        .pix-countdown {
+            color: var(--gold-light);
+            font-size: 1.5rem;
+            font-weight: 900;
+            margin: 8px 0 16px;
+        }
+        .pix-qr-image {
+            width: 220px;
+            height: 220px;
+            object-fit: contain;
+            background: #fff;
+            border-radius: 8px;
+            padding: 8px;
+            margin: 0 auto 14px;
+        }
+        .pix-copy-row {
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+        }
+        .pix-copy-row input {
+            flex: 1;
+            min-width: 0;
+            padding: 10px;
+            background: var(--bg-color);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            color: var(--text-color);
+            border-radius: 7px;
+            font-size: 0.75rem;
+        }
+        .pix-copy-row button {
+            padding: 0 12px;
+            border-radius: 7px;
+            background: var(--gold-gradient);
+            color: #000;
+            font-weight: 800;
+        }
+
+        .btn-check {
+            background: rgba(0, 0, 0, 0.15);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 900;
+        }
+
+        .btn-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1.1;
+        }
+
+        .btn-text span {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .btn-text strong {
+            font-size: 1.05rem;
+            font-weight: 900;
+        }
+
+        footer {
+            background: #040812;
+            padding: 40px 0;
+            text-align: center;
+            margin-top: 60px;
+            border-top: 1px solid var(--surface-color);
+        }
+        footer p { color: var(--text-muted); font-size: 14px; margin-bottom: 10px; }
+
+        .lightbox-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(4, 8, 18, 0.97);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .lightbox-overlay.active {
+            display: flex;
+        }
+
+        .lightbox-content {
+            position: relative;
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .lightbox-image-wrap {
+            width: 100%;
+            max-height: 80vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border-radius: 12px;
+            border: 1px solid rgba(212, 175, 55, 0.25);
+            background: #000;
+        }
+
+        .lightbox-image-wrap img {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+            display: block;
+            user-select: none;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: -50px;
+            right: 0;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .lightbox-close:hover {
+            background: var(--gold-gradient);
+            color: #000;
+            border-color: var(--primary);
+        }
+
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(8, 16, 33, 0.75);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            color: var(--gold-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            z-index: 5;
+        }
+
+        .lightbox-nav:hover {
+            background: var(--gold-gradient);
+            color: #000;
+            border-color: var(--primary);
+            transform: translateY(-50%) scale(1.08);
+        }
+
+        .lightbox-prev { left: 10px; }
+        .lightbox-next { right: 10px; }
+
+        .lightbox-counter {
+            margin-top: 16px;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .lightbox-counter span {
+            color: var(--gold-light);
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2rem; }
+            .lightbox-nav { width: 40px; height: 40px; }
+            .lightbox-prev { left: 4px; }
+            .lightbox-next { right: 4px; }
+            .lightbox-close { top: -46px; }
+        }
+
+        @media (max-width: 480px) {
+            .nav-content { height: 60px; }
+            .logo { font-size: 21px; }
+            .nav-actions .btn-login { padding: 8px 12px; margin-right: 4px; font-size: 13px; }
+            .nav-actions .btn-primary { padding: 8px 14px; font-size: 13px; }
+            .hero { padding: 30px 0; }
+            .hero h1 { font-size: 1.5rem; padding: 0 8px; }
+            .hero p.subtitle { font-size: 1rem; padding: 0 12px; }
+            .prize-image-container { border-radius: 10px; margin-bottom: 20px; }
+            .moto-info-overlay h3 { font-size: 1.15rem; }
+            .badge-premium { font-size: 11px; padding: 5px 12px; top: 12px; right: 12px; }
+            .fullscreen-btn { width: 36px; height: 36px; top: 12px; left: 12px; }
+            .section-title { font-size: 1.6rem; }
+            .cotas-checkout-row { flex-direction: column; }
+            .qty-selector, .btn-participar { width: 100%; flex: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="container nav-content">
+            <div class="logo">
+                Kóò<span class="text-gold">premios</span>
+            </div>
+            <div class="nav-actions" id="authNav" aria-live="polite">
+                <a href="login.html" class="btn-login">Entrar</a>
+                <a href="cadastro.html" class="btn-primary">Criar Conta</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero container">
+            <h1>Concorra a uma <span class="text-gold">XRE 190 2026</span>!</h1>
+            <p class="subtitle">Sorteio autorizado pela Loteria Federal. Apenas <strong class="text-gold">R$ 0,50</strong> a cota!</p>
+
+            <a href="#cotasSection" class="prize-image-container" aria-label="Ver fotos e comprar cotas">
+                <img src="IMG_1737.jpg" alt="Honda XRE 190 2026 em Destaque">
+                <button type="button" class="fullscreen-btn" onclick="openLightbox(event, 0)" aria-label="Ver em tela cheia">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                </button>
+                <div class="badge-premium">Modelo 2026</div>
+                <div class="moto-info-overlay">
+                    <span class="fipe-tag">Tabela FIPE: R$ 27.000,00</span>
+                    <h3>Honda XRE 190 2026</h3>
+                    <p>Zero km, Documentos inclusos, Emplacada!</p>
+                    <div class="click-hint">
+                        <span>Ver fotos e comprar cotas</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                    </div>
+                </div>
+            </a>
+
+            <div class="progress-wrapper">
+                <div class="progress-stats">
+                    <span>Cotômetro</span>
+                    <span class="text-gold" id="progress-text">0% Vendido</span>
+                </div>
+                <div class="progress-meta">
+                    <span id="progress-count">0 de 150.000 números vendidos</span>
+                    <span id="reserved-count">0 reservados</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="buy-section" id="cotasSection">
+            <div class="container">
+                <h2 class="section-title">Garanta suas Cotas</h2>
+
+                <div class="gallery-container">
+                    <h3>Fotos Detalhadas da Moto</h3>
+                    <div class="gallery-grid">
+                        <div class="gallery-item" onclick="openLightbox(event, 0)">
+                            <img src="IMG_1737.jpg" alt="Foto XRE 1">
+                            <span class="expand-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                            </span>
+                        </div>
+                        <div class="gallery-item" onclick="openLightbox(event, 1)">
+                            <img src="IMG_1757.jpg" alt="Foto XRE 2">
+                            <span class="expand-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                            </span>
+                        </div>
+                        <div class="gallery-item" onclick="openLightbox(event, 2)">
+                            <img src="IMG_1820.jpg" alt="Foto XRE 3">
+                            <span class="expand-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                            </span>
+                        </div>
+                        <div class="gallery-item" onclick="openLightbox(event, 3)">
+                            <img src="IMG_1827.jpg" alt="Foto XRE 4">
+                            <span class="expand-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                            </span>
+                        </div>
+                        <div class="gallery-item" onclick="openLightbox(event, 4)">
+                            <img src="IMG_1869.jpg" alt="Foto XRE 5">
+                            <span class="expand-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEÇÃO DE COTAS COM O LAYOUT DA SUA FOTO E AS CORES DO SEU SITE -->
+                <div class="cotas-wrapper">
+                    <p class="cotas-subtitle">Quanto mais títulos, mais chances de ganhar!</p>
+
+                    <div class="cotas-grid">
+                        <div class="cota-card" onclick="selectCota(50, this)">
+                            <span class="cota-qty text-gold">+50</span>
+                            <span class="cota-price">R$ 25,00</span>
+                            <span class="cota-action">SELECIONAR</span>
+                        </div>
+
+                        <div class="cota-card" onclick="selectCota(100, this)">
+                            <span class="cota-qty text-gold">+100</span>
+                            <span class="cota-price">R$ 50,00</span>
+                            <span class="cota-action">SELECIONAR</span>
+                        </div>
+
+                        <div class="cota-card" onclick="selectCota(500, this)">
+                            <span class="cota-qty text-gold">+500</span>
+                            <span class="cota-price">R$ 250,00</span>
+                            <span class="cota-action">SELECIONAR</span>
+                        </div>
+
+                        <div class="cota-card" onclick="selectCota(1000, this)">
+                            <span class="cota-qty text-gold">+1000</span>
+                            <span class="cota-price">R$ 500,00</span>
+                            <span class="cota-action">SELECIONAR</span>
+                        </div>
+                    </div>
+
+                    <div class="cotas-checkout-row">
+                        <div class="qty-selector">
+                            <button type="button" class="qty-btn" onclick="changeQty(-10)">−</button>
+                            <input type="number" id="input-qty" value="100" min="1" oninput="updatePriceFromInput()">
+                            <button type="button" class="qty-btn" onclick="changeQty(10)">+</button>
+                        </div>
+
+                        <button type="button" class="btn-participar" id="participate-button">
+                            <span class="btn-check">✓</span>
+                            <div class="btn-text">
+                                <span>Quero participar</span>
+                                <strong id="display-price">R$ 50,00</strong>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div id="purchase-message" class="purchase-message" hidden></div>
+
+                    <div id="pix-order-panel" class="pix-order-panel" hidden>
+                        <h3>Pagamento via Pix</h3>
+                        <p class="pix-order-summary">Pedido <strong id="pix-order-id"></strong><br>Valor: <strong id="pix-order-total"></strong></p>
+                        <div class="pix-countdown" id="pix-countdown">10:00</div>
+                        <img id="pix-qr-image" class="pix-qr-image" alt="QR Code Pix" hidden>
+                        <div class="pix-copy-row">
+                            <input id="pix-copy-paste" type="text" readonly aria-label="Pix copia e cola">
+                            <button type="button" id="copy-pix-button">Copiar</button>
+                        </div>
+                        <p class="pix-order-summary" style="margin-top: 12px;">Números reservados: <strong id="pix-order-numbers"></strong></p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="logo" style="margin-bottom: 20px;">
+                Kóò<span class="text-gold">premios</span>
+            </div>
+            <p>&copy; 2026 Kóòpremios. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <div class="lightbox-overlay" id="lightbox">
+        <div class="lightbox-content">
+            <button type="button" class="lightbox-close" onclick="closeLightbox()" aria-label="Fechar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+            <button type="button" class="lightbox-nav lightbox-prev" onclick="changeLightbox(-1)" aria-label="Foto anterior">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <div class="lightbox-image-wrap">
+                <img id="lightbox-img" src="" alt="Foto da moto em tela cheia">
+            </div>
+            <button type="button" class="lightbox-nav lightbox-next" onclick="changeLightbox(1)" aria-label="Próxima foto">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <div class="lightbox-counter"><span id="lightbox-current">1</span> / <span id="lightbox-total">5</span></div>
+        </div>
+    </div>
+
+    <!-- SCRIPT ORIGINAL DO LIGHTBOX -->
+    <script>
+        const lightboxPhotos = [
+            'IMG_1737.jpg',
+            'IMG_1757.jpg',
+            'IMG_1820.jpg',
+            'IMG_1827.jpg',
+            'IMG_1869.jpg'
+        ];
+        let currentLightboxIndex = 0;
+        const lightboxEl = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+
+        function openLightbox(evt, index) {
+            if (evt) {
+                evt.preventDefault();
+                evt.stopPropagation();
+            }
+            currentLightboxIndex = index;
+            updateLightboxImage();
+            lightboxEl.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            document.getElementById('lightbox-total').innerText = lightboxPhotos.length;
+        }
+
+        function closeLightbox() {
+            lightboxEl.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function changeLightbox(direction) {
+            currentLightboxIndex = (currentLightboxIndex + direction + lightboxPhotos.length) % lightboxPhotos.length;
+            updateLightboxImage();
+        }
+
+        function updateLightboxImage() {
+            lightboxImg.src = lightboxPhotos[currentLightboxIndex];
+            document.getElementById('lightbox-current').innerText = currentLightboxIndex + 1;
+        }
+
+        lightboxEl.addEventListener('click', function(e) {
+            if (e.target === lightboxEl) closeLightbox();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (!lightboxEl.classList.contains('active')) return;
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowLeft') changeLightbox(-1);
+            if (e.key === 'ArrowRight') changeLightbox(1);
+        });
+    </script>
+
+    <script type="module" src="firebase-client.js"></script>
+    <script type="module" src="compra.js"></script>
+</body>
+</html>

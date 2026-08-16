@@ -1,0 +1,17 @@
+{
+  "name": "k-premia-functions",
+  "private": true,
+  "description": "Backend seguro da rifa K-Premia com Firebase e PagBank Pix",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "start": "firebase emulators:start --only functions,firestore",
+    "lint": "node --check index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.3.2"
+  }
+}
