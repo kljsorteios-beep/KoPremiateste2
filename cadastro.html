@@ -140,6 +140,28 @@
             outline: none;
         }
 
+        .password-wrap {
+            position: relative;
+        }
+        .password-wrap input {
+            padding-right: 76px;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 6px 8px;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--gold-light);
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .password-toggle:hover {
+            background: rgba(212, 175, 55, 0.12);
+        }
+
         .form-group .error-msg {
             display: none;
             color: var(--error);
@@ -272,7 +294,10 @@
 
                 <div class="form-group" id="group-senha">
                     <label for="senha">Senha</label>
-                    <input type="password" id="senha" name="senha" placeholder="Crie uma senha" required>
+                    <div class="password-wrap">
+                        <input type="password" id="senha" name="senha" placeholder="Crie uma senha" required>
+                        <button type="button" class="password-toggle" data-target="senha" aria-label="Mostrar senha">Mostrar</button>
+                    </div>
                     <span class="error-msg">A senha deve ter ao menos 6 caracteres.</span>
                 </div>
                 
@@ -373,6 +398,16 @@
                 successBox.style.display = 'block';
             }
         }
+
+        document.querySelectorAll('.password-toggle').forEach((toggle) => {
+            toggle.addEventListener('click', () => {
+                const input = document.getElementById(toggle.dataset.target);
+                const showing = input.type === 'text';
+                input.type = showing ? 'password' : 'text';
+                toggle.textContent = showing ? 'Mostrar' : 'Ocultar';
+                toggle.setAttribute('aria-label', showing ? 'Mostrar senha' : 'Ocultar senha');
+            });
+        });
 
         // Busca de CEP em tempo real assim que completar 8 dígitos
         const cepInput = document.getElementById('cep');

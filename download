@@ -8,6 +8,8 @@ firebase-adminsdk*.json
 generated-raffle/numeros-premiados.csv
 generated-raffle/ordem-distribuicao.csv
 generated-raffle/*.json
+backup-kpremia-*.json
+backup-*.json
 *.pem
 *.key
 *.crt

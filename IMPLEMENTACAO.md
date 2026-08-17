@@ -59,6 +59,34 @@ https://southamerica-east1-SEU_PROJECT_ID.cloudfunctions.net/pagbankWebhook
 
 O pedido Pix inclui `reference_id`, valor em centavos, data de expiração e `notification_urls`. O webhook valida o header `x-authenticity-token` calculando SHA-256 sobre `token-payload` sem formatar o JSON.
 
+## Recuperação de senha e controles de acesso
+
+A tela `login.html` agora oferece `Esqueci minha senha`. O Firebase envia o link usando `sendPasswordResetEmail`; para funcionar em produção, o domínio do Vercel precisa estar autorizado em **Authentication > Settings > Authorized domains**. O botão `Mostrar/Ocultar` altera apenas o tipo visual do campo no navegador e nunca grava a senha no Firestore.
+
+## Expansão segura do Firestore para 150 mil números
+
+Não use a opção **Adicionar documento** do console para criar 140 mil registros manualmente. O comando `scripts/expand-firestore.js` lê a coleção `cotas`, preserva documentos já existentes, cria os shards compactos de disponibilidade e grava os 10 mil documentos de `numerosPremiados` sem expor a lista ao frontend. O modo padrão não materializa os 150 mil documentos `cotas`; eles são criados somente quando um número é reservado ou vendido. A opção `--materialize-tickets` existe apenas para projetos com quota/faturamento suficientes e não deve ser usada no plano gratuito.
+
+Primeiro faça um backup do Firestore. Depois instale as dependências e rode o modo de planejamento usando uma conta de serviço com permissão administrativa:
+
+```bash
+npm --prefix functions install
+export GOOGLE_APPLICATION_CREDENTIALS=/caminho/seguro/firebase-service-account.json
+node scripts/expand-firestore.js
+```
+
+O modo de planejamento apenas lê o banco e mostra a quantidade de documentos existentes, números disponíveis, shards previstos e a origem da lista premiada. Se `numerosPremiados` estiver vazio, o script gera uma lista criptograficamente aleatória de 10 mil números. Depois da primeira publicação, as próximas execuções reutilizam exatamente a lista existente; se houver uma coleção incompleta, o script para e exige conferência manual. Quando conferir o resultado, rode explicitamente:
+
+```bash
+node scripts/expand-firestore.js --apply
+```
+
+No plano gratuito, use exatamente o comando acima. Ele grava aproximadamente 10 mil documentos premiados, cerca de 150 shards e poucos documentos de configuração; não grava 150 mil documentos `cotas`. Não acrescente `--materialize-tickets`.
+
+O script mantém a campanha em `preparacao` depois da carga. Isso é intencional: primeiro confirme o webhook Pix em sandbox e só depois abra a venda pelo painel. Para alterar o limite de documentos legados preservados, use, por exemplo, `--preserve-until=10000`. No modo compacto, a operação grava aproximadamente 10.150 documentos iniciais, além de preservar os documentos existentes, e recalcula o pool de números disponíveis.
+
+Quando o pagamento for confirmado, a Cloud Function atualiza os documentos `cotas/{numero}` com `comprador`, `cpf`, `compradorUid`, `pedidoId` e `status: "indisponivel"`. O mesmo número não pode ser escolhido novamente porque foi removido do pool dentro de uma transação Firestore. Se a reserva vencer sem pagamento, os campos são limpos e o status volta para `disponivel`.
+
 ## Geração local dos números
 
 O comando abaixo gera arquivos locais sem publicar nada:

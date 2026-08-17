@@ -43,6 +43,26 @@
             scroll-behavior: smooth;
         }
 
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                scroll-behavior: auto !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(22px);
+            transition: opacity 0.7s ease, transform 0.7s ease;
+        }
+
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         a { text-decoration: none; color: inherit; }
         ul { list-style: none; }
         button { cursor: pointer; border: none; outline: none; }
@@ -343,37 +363,76 @@
 
         .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            grid-auto-rows: minmax(118px, 1fr);
+            gap: 16px;
         }
 
         .gallery-item {
-            border-radius: 10px;
+            min-width: 0;
+            position: relative;
             overflow: hidden;
             aspect-ratio: 4 / 3;
-            border: 2px solid transparent;
-            cursor: pointer;
-            transition: var(--transition);
+            border: 1px solid rgba(212, 175, 55, 0.18);
+            border-radius: 14px;
+            cursor: zoom-in;
             background: var(--bg-color);
-            position: relative;
+            isolation: isolate;
+            transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
         }
 
-        .gallery-item:hover {
+        .gallery-item:first-child {
+            grid-column: span 6;
+            grid-row: span 2;
+            aspect-ratio: 3 / 4;
+        }
+
+        .gallery-item:not(:first-child) {
+            grid-column: span 3;
+        }
+
+        .gallery-item::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: linear-gradient(180deg, transparent 55%, rgba(4, 8, 18, 0.48));
+            opacity: 0.7;
+            transition: opacity 0.35s ease;
+        }
+
+        .gallery-item:hover,
+        .gallery-item:focus-visible {
             border-color: var(--primary);
-            transform: translateY(-4px);
+            transform: translateY(-5px);
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.34), 0 0 0 3px rgba(212, 175, 55, 0.12);
+            outline: none;
+        }
+
+        .gallery-item:hover::after,
+        .gallery-item:focus-visible::after {
+            opacity: 1;
         }
 
         .gallery-item img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
             display: block;
+            object-fit: cover;
+            object-position: center;
+            transition: transform 0.6s ease;
+        }
+
+        .gallery-item:hover img,
+        .gallery-item:focus-visible img {
+            transform: scale(1.045);
         }
 
         .gallery-item .expand-icon {
             position: absolute;
-            bottom: 8px;
-            right: 8px;
+            bottom: 12px;
+            right: 12px;
             width: 30px;
             height: 30px;
             background: rgba(8, 16, 33, 0.75);
@@ -384,11 +443,15 @@
             justify-content: center;
             color: var(--gold-light);
             opacity: 0;
-            transition: var(--transition);
+            transform: translateY(5px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 2;
         }
 
-        .gallery-item:hover .expand-icon {
+        .gallery-item:hover .expand-icon,
+        .gallery-item:focus-visible .expand-icon {
             opacity: 1;
+            transform: translateY(0);
         }
 
         /* ==============================
@@ -640,6 +703,7 @@
         footer p { color: var(--text-muted); font-size: 14px; margin-bottom: 10px; }
 
         .lightbox-overlay {
+            overscroll-behavior: contain;
             position: fixed;
             inset: 0;
             background: rgba(4, 8, 18, 0.97);
@@ -681,6 +745,15 @@
             object-fit: contain;
             display: block;
             user-select: none;
+            border-radius: 10px;
+            opacity: 0;
+            transform: scale(0.985);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .lightbox-image-wrap img.is-loaded {
+            opacity: 1;
+            transform: scale(1);
         }
 
         .lightbox-close {
@@ -746,6 +819,21 @@
 
         @media (max-width: 768px) {
             .hero h1 { font-size: 2rem; }
+            .gallery-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-auto-rows: auto;
+                gap: 12px;
+            }
+            .gallery-item:first-child {
+                grid-column: span 2;
+                grid-row: auto;
+                aspect-ratio: 16 / 10;
+            }
+            .gallery-item:not(:first-child) {
+                grid-column: span 1;
+                aspect-ratio: 4 / 3;
+            }
+            .gallery-item .expand-icon { opacity: 1; transform: none; }
             .lightbox-nav { width: 40px; height: 40px; }
             .lightbox-prev { left: 4px; }
             .lightbox-next { right: 4px; }
@@ -761,6 +849,9 @@
             .hero h1 { font-size: 1.5rem; padding: 0 8px; }
             .hero p.subtitle { font-size: 1rem; padding: 0 12px; }
             .prize-image-container { border-radius: 10px; margin-bottom: 20px; }
+            .gallery-container { margin-bottom: 34px; }
+            .gallery-grid { gap: 10px; }
+            .gallery-item { border-radius: 11px; }
             .moto-info-overlay h3 { font-size: 1.15rem; }
             .badge-premium { font-size: 11px; padding: 5px 12px; top: 12px; right: 12px; }
             .fullscreen-btn { width: 36px; height: 36px; top: 12px; left: 12px; }
@@ -788,6 +879,7 @@
         <section class="hero container">
             <h1>Concorra a uma <span class="text-gold">XRE 190 2026</span>!</h1>
             <p class="subtitle">Sorteio autorizado pela Loteria Federal. Apenas <strong class="text-gold">R$ 0,50</strong> a cota!</p>
+            <p class="subtitle" style="margin-top: -18px; font-size: 0.88rem;">São <strong class="text-gold">10 mil cotas premiadas</strong> distribuídas entre 150 mil números.</p>
 
             <a href="#cotasSection" class="prize-image-container" aria-label="Ver fotos e comprar cotas">
                 <img src="IMG_1737.jpg" alt="Honda XRE 190 2026 em Destaque">
@@ -825,35 +917,35 @@
             <div class="container">
                 <h2 class="section-title">Garanta suas Cotas</h2>
 
-                <div class="gallery-container">
+                <div class="gallery-container reveal">
                     <h3>Fotos Detalhadas da Moto</h3>
                     <div class="gallery-grid">
-                        <div class="gallery-item" onclick="openLightbox(event, 0)">
+                        <div class="gallery-item" tabindex="0" role="button" aria-label="Ampliar foto XRE 1" onclick="openLightbox(event, 0)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { openLightbox(event, 0); }">
                             <img src="IMG_1737.jpg" alt="Foto XRE 1">
                             <span class="expand-icon">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
                             </span>
                         </div>
-                        <div class="gallery-item" onclick="openLightbox(event, 1)">
-                            <img src="IMG_1757.jpg" alt="Foto XRE 2">
+                        <div class="gallery-item" tabindex="0" role="button" aria-label="Ampliar foto XRE 2" onclick="openLightbox(event, 1)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { openLightbox(event, 1); }">
+                            <img src="IMG_1757.jpg" alt="Foto XRE 2" loading="lazy" decoding="async">
                             <span class="expand-icon">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
                             </span>
                         </div>
-                        <div class="gallery-item" onclick="openLightbox(event, 2)">
-                            <img src="IMG_1820.jpg" alt="Foto XRE 3">
+                        <div class="gallery-item" tabindex="0" role="button" aria-label="Ampliar foto XRE 3" onclick="openLightbox(event, 2)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { openLightbox(event, 2); }">
+                            <img src="IMG_1820.jpg" alt="Foto XRE 3" loading="lazy" decoding="async">
                             <span class="expand-icon">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
                             </span>
                         </div>
-                        <div class="gallery-item" onclick="openLightbox(event, 3)">
-                            <img src="IMG_1827.jpg" alt="Foto XRE 4">
+                        <div class="gallery-item" tabindex="0" role="button" aria-label="Ampliar foto XRE 4" onclick="openLightbox(event, 3)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { openLightbox(event, 3); }">
+                            <img src="IMG_1827.jpg" alt="Foto XRE 4" loading="lazy" decoding="async">
                             <span class="expand-icon">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
                             </span>
                         </div>
-                        <div class="gallery-item" onclick="openLightbox(event, 4)">
-                            <img src="IMG_1869.jpg" alt="Foto XRE 5">
+                        <div class="gallery-item" tabindex="0" role="button" aria-label="Ampliar foto XRE 5" onclick="openLightbox(event, 4)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { openLightbox(event, 4); }">
+                            <img src="IMG_1869.jpg" alt="Foto XRE 5" loading="lazy" decoding="async">
                             <span class="expand-icon">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
                             </span>
@@ -862,7 +954,7 @@
                 </div>
 
                 <!-- SEÇÃO DE COTAS COM O LAYOUT DA SUA FOTO E AS CORES DO SEU SITE -->
-                <div class="cotas-wrapper">
+                <div class="cotas-wrapper reveal">
                     <p class="cotas-subtitle">Quanto mais títulos, mais chances de ganhar!</p>
 
                     <div class="cotas-grid">
@@ -935,25 +1027,24 @@
         </div>
     </footer>
 
-    <div class="lightbox-overlay" id="lightbox">
+    <div class="lightbox-overlay" id="lightbox" role="dialog" aria-modal="true" aria-label="Galeria de fotos da Honda XRE 190" aria-hidden="true">
         <div class="lightbox-content">
-            <button type="button" class="lightbox-close" onclick="closeLightbox()" aria-label="Fechar">
+            <button type="button" class="lightbox-close" id="lightbox-close" onclick="closeLightbox()" aria-label="Fechar galeria">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
-            <button type="button" class="lightbox-nav lightbox-prev" onclick="changeLightbox(-1)" aria-label="Foto anterior">
+            <button type="button" class="lightbox-nav lightbox-prev" id="lightbox-prev" onclick="changeLightbox(-1)" aria-label="Foto anterior">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             </button>
             <div class="lightbox-image-wrap">
                 <img id="lightbox-img" src="" alt="Foto da moto em tela cheia">
             </div>
-            <button type="button" class="lightbox-nav lightbox-next" onclick="changeLightbox(1)" aria-label="Próxima foto">
+            <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" onclick="changeLightbox(1)" aria-label="Próxima foto">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
             </button>
             <div class="lightbox-counter"><span id="lightbox-current">1</span> / <span id="lightbox-total">5</span></div>
         </div>
     </div>
 
-    <!-- SCRIPT ORIGINAL DO LIGHTBOX -->
     <script>
         const lightboxPhotos = [
             'IMG_1737.jpg',
@@ -963,24 +1054,33 @@
             'IMG_1869.jpg'
         ];
         let currentLightboxIndex = 0;
+        let lastFocusedElement = null;
+        let touchStartX = 0;
         const lightboxEl = document.getElementById('lightbox');
         const lightboxImg = document.getElementById('lightbox-img');
+        const lightboxClose = document.getElementById('lightbox-close');
 
         function openLightbox(evt, index) {
             if (evt) {
                 evt.preventDefault();
                 evt.stopPropagation();
             }
+            lastFocusedElement = document.activeElement;
             currentLightboxIndex = index;
             updateLightboxImage();
             lightboxEl.classList.add('active');
+            lightboxEl.setAttribute('aria-hidden', 'false');
+            document.body.dataset.previousOverflow = document.body.style.overflow || '';
             document.body.style.overflow = 'hidden';
             document.getElementById('lightbox-total').innerText = lightboxPhotos.length;
+            window.requestAnimationFrame(() => lightboxClose?.focus());
         }
 
         function closeLightbox() {
             lightboxEl.classList.remove('active');
-            document.body.style.overflow = '';
+            lightboxEl.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = document.body.dataset.previousOverflow || '';
+            if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
         }
 
         function changeLightbox(direction) {
@@ -989,20 +1089,51 @@
         }
 
         function updateLightboxImage() {
+            lightboxImg.classList.remove('is-loaded');
+            lightboxImg.alt = `Foto ${currentLightboxIndex + 1} da Honda XRE 190 2026`;
             lightboxImg.src = lightboxPhotos[currentLightboxIndex];
             document.getElementById('lightbox-current').innerText = currentLightboxIndex + 1;
+            if (lightboxImg.complete) window.requestAnimationFrame(() => lightboxImg.classList.add('is-loaded'));
         }
 
-        lightboxEl.addEventListener('click', function(e) {
-            if (e.target === lightboxEl) closeLightbox();
+        lightboxImg.addEventListener('load', () => lightboxImg.classList.add('is-loaded'));
+        lightboxEl.addEventListener('click', (event) => {
+            if (event.target === lightboxEl) closeLightbox();
+        });
+        lightboxEl.addEventListener('touchstart', (event) => {
+            touchStartX = event.changedTouches[0].screenX;
+        }, { passive: true });
+        lightboxEl.addEventListener('touchend', (event) => {
+            const distance = event.changedTouches[0].screenX - touchStartX;
+            if (Math.abs(distance) < 45) return;
+            changeLightbox(distance < 0 ? 1 : -1);
+        }, { passive: true });
+
+        document.addEventListener('keydown', (event) => {
+            if (!lightboxEl.classList.contains('active')) return;
+            if (event.key === 'Escape') closeLightbox();
+            if (event.key === 'ArrowLeft') changeLightbox(-1);
+            if (event.key === 'ArrowRight') changeLightbox(1);
+            if (event.key === 'Tab' && document.activeElement !== lightboxClose) {
+                event.preventDefault();
+                lightboxClose.focus();
+            }
         });
 
-        document.addEventListener('keydown', function(e) {
-            if (!lightboxEl.classList.contains('active')) return;
-            if (e.key === 'Escape') closeLightbox();
-            if (e.key === 'ArrowLeft') changeLightbox(-1);
-            if (e.key === 'ArrowRight') changeLightbox(1);
-        });
+        const revealElements = document.querySelectorAll('.reveal');
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion || !('IntersectionObserver' in window)) {
+            revealElements.forEach((element) => element.classList.add('is-visible'));
+        } else {
+            const revealObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                });
+            }, { threshold: 0.12 });
+            revealElements.forEach((element) => revealObserver.observe(element));
+        }
     </script>
 
     <script type="module" src="firebase-client.js"></script>

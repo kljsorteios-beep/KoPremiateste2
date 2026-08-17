@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrar | Kóòpremios</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold-dark: #8a631c;
+            --gold-mid: #d4af37;
+            --gold-light: #fced9e;
+            --gold-gradient: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-mid) 25%, var(--gold-light) 50%, var(--gold-mid) 75%, var(--gold-dark) 100%);
+            --primary: #d4af37;
+            --bg-color: #081021;
+            --surface-color: #0f172a;
+            --surface-hover: #1e293b;
+            --text-color: #e1e1e6;
+            --text-muted: #a8a8b3;
+            --radius: 8px;
+            --transition: all 0.3s ease;
+            --error: #ff6b6b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        a { text-decoration: none; color: inherit; }
+        button { cursor: pointer; border: none; outline: none; }
+
+        .text-gold {
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            display: inline-block;
+        }
+
+        header.navbar {
+            background-color: rgba(8, 16, 33, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--surface-color);
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+        }
+
+        .logo { font-size: 26px; font-weight: 900; letter-spacing: 1px; }
+
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .back-link:hover { color: var(--primary); }
+
+        main.auth-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .auth-card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--surface-color);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 16px;
+            padding: 40px 32px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .auth-card h1 {
+            font-size: 1.8rem;
+            font-weight: 900;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .auth-card .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 30px;
+        }
+
+        .form-group { margin-bottom: 18px; }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 13px 14px;
+            background: var(--bg-color);
+            border: 1.5px solid rgba(212, 175, 55, 0.15);
+            border-radius: var(--radius);
+            color: var(--text-color);
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+
+        .form-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+            outline: none;
+        }
+
+        .password-wrap {
+            position: relative;
+        }
+        .password-wrap input {
+            padding-right: 76px;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 6px 8px;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--gold-light);
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .password-toggle:hover {
+            background: rgba(212, 175, 55, 0.12);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: var(--gold-gradient);
+            color: #000;
+            font-weight: 900;
+            font-size: 1rem;
+            padding: 15px;
+            border-radius: var(--radius);
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: var(--transition);
+            background-size: 200% auto;
+        }
+
+        .btn-submit:hover {
+            background-position: right center;
+            box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
+        }
+
+        .auth-switch {
+            text-align: center;
+            margin-top: 22px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .auth-switch a { color: var(--primary); font-weight: 700; }
+        .forgot-password {
+            display: block;
+            text-align: right;
+            margin-top: -8px;
+            color: var(--gold-light);
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .success-box {
+            display: none;
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: var(--radius);
+            padding: 14px;
+            text-align: center;
+            font-size: 0.9rem;
+            margin-bottom: 18px;
+            color: var(--gold-light);
+        }
+
+        .error-box {
+            display: none;
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.4);
+            border-radius: var(--radius);
+            padding: 14px;
+            text-align: center;
+            font-size: 0.9rem;
+            margin-bottom: 18px;
+            color: var(--error);
+        }
+
+        footer {
+            background: #040812;
+            padding: 24px 0;
+            text-align: center;
+            border-top: 1px solid var(--surface-color);
+        }
+        footer p { color: var(--text-muted); font-size: 13px; }
+
+        @media (max-width: 480px) {
+            .auth-card { padding: 30px 22px; }
+            .auth-card h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">Kóò<span class="text-gold">premios</span></a>
+            <a href="index.html" class="back-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Voltar ao site
+            </a>
+        </div>
+    </header>
+
+    <main class="auth-main">
+        <div class="auth-card">
+            <h1>Bem-vindo de volta</h1>
+            <p class="subtitle">Entre para acompanhar suas cotas</p>
+
+            <div class="success-box" id="successBox">Login realizado com sucesso! Redirecionando...</div>
+            <div class="error-box" id="errorBox"></div>
+
+            <form id="loginForm" novalidate>
+                <div class="form-group" id="group-identifier">
+                    <label for="identifier">E-mail</label>
+                    <input type="email" id="identifier" name="identifier" placeholder="seuemail@exemplo.com" required>
+                </div>
+
+                <div class="form-group" id="group-password">
+                    <label for="password">Senha</label>
+                    <div class="password-wrap">
+                        <input type="password" id="password" name="password" placeholder="Sua senha" required>
+                        <button type="button" class="password-toggle" data-target="password" aria-label="Mostrar senha">Mostrar</button>
+                    </div>
+                </div>
+
+                <a href="#" class="forgot-password" id="forgotPassword">Esqueci minha senha</a>
+                <button type="submit" class="btn-submit">Entrar</button>
+            </form>
+
+            <p class="auth-switch">Ainda não tem conta? <a href="cadastro.html">Criar conta</a></p>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Kóòpremios. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script type="module">
+        import { auth, browserLocalPersistence, setPersistence } from './firebase-client.js';
+        import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+
+        const form = document.getElementById('loginForm');
+        const returnToParam = new URLSearchParams(window.location.search).get('returnTo');
+        const redirectTo = returnToParam && /^[a-zA-Z0-9._-]+\.html$/.test(returnToParam)
+            ? returnToParam
+            : 'index.html';
+
+        function mostrarErro(msg) {
+            const errorBox = document.getElementById('errorBox');
+            const successBox = document.getElementById('successBox');
+            if (successBox) successBox.style.display = 'none';
+            if (errorBox) {
+                errorBox.innerText = msg;
+                errorBox.style.display = 'block';
+            }
+        }
+
+        function mostrarSucesso(msg) {
+            const errorBox = document.getElementById('errorBox');
+            const successBox = document.getElementById('successBox');
+            if (errorBox) errorBox.style.display = 'none';
+            if (successBox) {
+                successBox.innerText = msg;
+                successBox.style.display = 'block';
+            }
+        }
+
+        document.querySelectorAll('.password-toggle').forEach((toggle) => {
+            toggle.addEventListener('click', () => {
+                const input = document.getElementById(toggle.dataset.target);
+                const showing = input.type === 'text';
+                input.type = showing ? 'password' : 'text';
+                toggle.textContent = showing ? 'Mostrar' : 'Ocultar';
+                toggle.setAttribute('aria-label', showing ? 'Mostrar senha' : 'Ocultar senha');
+            });
+        });
+
+        document.getElementById('forgotPassword').addEventListener('click', async (event) => {
+            event.preventDefault();
+            const email = document.getElementById('identifier').value.trim().toLowerCase();
+            if (!email) {
+                mostrarErro('Informe seu e-mail acima para receber o link de recuperação.');
+                document.getElementById('identifier').focus();
+                return;
+            }
+
+            try {
+                await sendPasswordResetEmail(auth, email, {
+                    url: `${window.location.origin}${window.location.pathname.replace(/login\.html$/, 'login.html')}`,
+                    handleCodeInApp: false,
+                });
+                mostrarSucesso('Enviamos um link de recuperação para seu e-mail. Verifique também a caixa de spam.');
+            } catch (error) {
+                console.error('Erro ao enviar recuperação de senha:', error);
+                if (error.code === 'auth/invalid-email') {
+                    mostrarErro('Digite um e-mail válido para recuperar a senha.');
+                } else {
+                    mostrarErro('Não foi possível enviar o e-mail agora. Confira o endereço e tente novamente.');
+                }
+            }
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const btn = form.querySelector('.btn-submit');
+            const email = document.getElementById('identifier').value.trim().toLowerCase();
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                mostrarErro('Preencha todos os campos.');
+                return;
+            }
+
+            btn.innerText = 'ENTRANDO...';
+            btn.disabled = true;
+
+            try {
+                await setPersistence(auth, browserLocalPersistence);
+                await signInWithEmailAndPassword(auth, email, password);
+                mostrarSucesso('Login realizado com sucesso! Redirecionando...');
+                setTimeout(() => {
+                    window.location.href = redirectTo;
+                }, 700);
+            } catch (error) {
+                console.error('Erro de login:', error);
+                if (['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found'].includes(error.code)) {
+                    mostrarErro('E-mail ou senha incorretos.');
+                } else if (error.code === 'auth/too-many-requests') {
+                    mostrarErro('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
+                } else {
+                    mostrarErro('Erro ao realizar login. Tente novamente.');
+                }
+                btn.innerText = 'ENTRAR';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
