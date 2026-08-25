@@ -7,6 +7,7 @@ const {
 } = require('firebase-admin/firestore');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 
@@ -15,9 +16,14 @@ const db = getFirestore();
 
 const PAGBANK_ACCESS_TOKEN = defineSecret('PAGBANK_ACCESS_TOKEN');
 const PAGBANK_WEBHOOK_TOKEN = defineSecret('PAGBANK_WEBHOOK_TOKEN');
+const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
 const TOTAL_NUMBERS_DEFAULT = 150000;
-const WINNING_NUMBERS_DEFAULT = 10000;
+// A quantidade de números premiados depende do plano de premiação final.
+// Não gerar automaticamente 10.000 números: o prêmio principal e os prêmios
+// adicionais devem ser cadastrados explicitamente antes da abertura da venda.
+const WINNING_NUMBERS_DEFAULT = 0;
+const ADDITIONAL_PRIZE_POOL_CENTS_DEFAULT = 1000000;
 const PRICE_PER_NUMBER_CENTS_DEFAULT = 50;
 const RESERVATION_MINUTES_DEFAULT = 10;
 const SHARD_SIZE_DEFAULT = 1000;
@@ -114,6 +120,9 @@ function getConfigDefaults() {
   return {
     totalNumbers: TOTAL_NUMBERS_DEFAULT,
     totalWinningNumbers: WINNING_NUMBERS_DEFAULT,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: 'Honda XRE 190 2026',
+    additionalPrizePoolCents: ADDITIONAL_PRIZE_POOL_CENTS_DEFAULT,
     targetSoldNumbers: TOTAL_NUMBERS_DEFAULT,
     pricePerNumberCents: PRICE_PER_NUMBER_CENTS_DEFAULT,
     reservationMinutes: RESERVATION_MINUTES_DEFAULT,
@@ -222,12 +231,28 @@ async function updateTicketDocuments(numbers, fieldsOrFactory) {
   }
 }
 
-async function getWinningNumberSet() {
-  const snapshot = await db.doc('auditoria/rifa').get();
-  const numbers = snapshot.exists && Array.isArray(snapshot.data()?.winnerNumbers)
-    ? snapshot.data().winnerNumbers
-    : [];
-  return new Set(numbers.map(parseTicketNumber).filter((number) => number >= 1 && number <= TOTAL_NUMBERS_DEFAULT));
+async function getPrizeAssignmentMap(numbers = null) {
+  const documents = Array.isArray(numbers)
+    ? await Promise.all(numbers.map((number) => db.doc(`numerosPremiados/${formatTicketNumber(number)}`).get()))
+    : (await db.collection('numerosPremiados').get()).docs;
+  const assignments = new Map();
+  for (const document of documents) {
+    if (!document.exists) continue;
+    const data = document.data() || {};
+    // Registros antigos sem um prêmio catalogado não são considerados premiados.
+    if (!data.premioId || !data.premioNome || !data.premioTipo) continue;
+    const number = parseTicketNumber(data.numero || document.id);
+    if (number < 1 || number > TOTAL_NUMBERS_DEFAULT) continue;
+    assignments.set(number, {
+      premioId: data.premioId || null,
+      premioNome: data.premioNome || null,
+      premioTipo: data.premioTipo || null,
+      premioValorCents: Number.isInteger(Number(data.premioValorCents))
+        ? Number(data.premioValorCents)
+        : null,
+    });
+  }
+  return assignments;
 }
 
 async function refreshPublicState(transaction, stateData, configData) {
@@ -239,6 +264,9 @@ async function refreshPublicState(transaction, stateData, configData) {
   transaction.set(publicStateRef, {
     totalNumbers: Number(configData.totalNumbers),
     targetSoldNumbers,
+    prizeModel: configData.prizeModel || 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: configData.mainPrizeName || 'Honda XRE 190 2026',
+    additionalPrizePoolCents: Number(configData.additionalPrizePoolCents ?? ADDITIONAL_PRIZE_POOL_CENTS_DEFAULT),
     pricePerNumberCents: Number(configData.pricePerNumberCents),
     soldNumbers,
     reservedNumbers,
@@ -437,10 +465,14 @@ async function confirmPaidOrder(orderId, payload) {
   });
 
   if (paid && numbersToMark.length) {
-    const winningNumbers = await getWinningNumberSet();
+    const prizeAssignments = await getPrizeAssignmentMap(numbersToMark);
     await updateTicketDocuments(numbersToMark, (ticketNumber) => ({
       status: 'indisponivel',
-      premiada: winningNumbers.has(ticketNumber),
+      premiada: prizeAssignments.has(ticketNumber),
+      premioId: prizeAssignments.get(ticketNumber)?.premioId || null,
+      premioNome: prizeAssignments.get(ticketNumber)?.premioNome || null,
+      premioTipo: prizeAssignments.get(ticketNumber)?.premioTipo || null,
+      premioValorCents: prizeAssignments.get(ticketNumber)?.premioValorCents ?? null,
       pedidoId: orderId,
       comprador: buyerName,
       cpf: buyerCpf,
@@ -519,6 +551,112 @@ async function createPagBankOrder({ orderId, user, quantity, totalCents, expires
   };
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>\"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '\"': '&quot;',
+    "'": '&#39;',
+  }[character]));
+}
+
+function formatOrderNumbers(numbers) {
+  return (Array.isArray(numbers) ? numbers : [])
+    .map((number) => formatTicketNumber(number))
+    .join(', ');
+}
+
+async function sendPurchaseConfirmationEmail(purchaseId, purchase) {
+  const apiKey = getSecretValue(RESEND_API_KEY);
+  const from = getEnvironment('EMAIL_FROM');
+  if (!purchase.email) return { status: 'sem_email' };
+  if (!apiKey || !from) {
+    logger.warn('Confirmação de e-mail aguardando configuração', { purchaseId });
+    return { status: 'aguardando_configuracao' };
+  }
+
+  const buyerName = purchase.nome || 'participante';
+  const numbers = formatOrderNumbers(purchase.numeros);
+  const subject = `Compra confirmada — ${purchase.nomeRifa || 'Kóòpremios'}`;
+  const text = [
+    `Olá, ${buyerName}!`,
+    '',
+    'Seu pagamento foi confirmado e seus números estão registrados:',
+    numbers || 'Nenhum número informado',
+    '',
+    'Guarde esta mensagem. Você também pode consultar seus títulos na área Minha conta do site.',
+  ].join('\\n');
+  const html = `
+    <p>Olá, <strong>${escapeHtml(buyerName)}</strong>!</p>
+    <p>Seu pagamento foi confirmado e seus números estão registrados:</p>
+    <p><strong>${escapeHtml(numbers || 'Nenhum número informado')}</strong></p>
+    <p>Guarde esta mensagem. Você também pode consultar seus títulos na área Minha conta do site.</p>
+  `;
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: purchase.email,
+      subject,
+      text,
+      html,
+      tags: [
+        { name: 'tipo', value: 'confirmacao-compra' },
+        { name: 'pedido', value: purchaseId },
+      ],
+    }),
+  });
+
+  const bodyText = await response.text();
+  let body;
+  try {
+    body = JSON.parse(bodyText);
+  } catch (error) {
+    body = { raw: bodyText };
+  }
+  if (!response.ok) {
+    logger.error('Falha ao enviar confirmação por e-mail', {
+      purchaseId,
+      status: response.status,
+      body,
+    });
+    throw new Error(`Resend retornou HTTP ${response.status}.`);
+  }
+
+  return {
+    status: 'enviado',
+    provider: 'resend',
+    providerMessageId: body.id || null,
+  };
+}
+
+exports.sendPurchaseConfirmationEmail = onDocumentCreated({
+  region: 'southamerica-east1',
+  document: 'compras/{purchaseId}',
+  secrets: [RESEND_API_KEY],
+  retry: true,
+}, async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) return;
+  const purchase = snapshot.data() || {};
+  if (purchase.status !== 'pago' || purchase.confirmationEmail?.status === 'enviado') return;
+
+  const delivery = await sendPurchaseConfirmationEmail(snapshot.id, purchase);
+  await snapshot.ref.set({
+    confirmationEmail: {
+      ...delivery,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+  }, { merge: true });
+});
+
 exports.getPublicRaffleState = onCall({ region: 'southamerica-east1' }, async () => {
   const snapshot = await publicStateRef.get();
   if (!snapshot.exists) {
@@ -526,6 +664,9 @@ exports.getPublicRaffleState = onCall({ region: 'southamerica-east1' }, async ()
     return {
       totalNumbers: defaults.totalNumbers,
       targetSoldNumbers: defaults.targetSoldNumbers,
+      prizeModel: defaults.prizeModel,
+      mainPrizeName: defaults.mainPrizeName,
+      additionalPrizePoolCents: defaults.additionalPrizePoolCents,
       pricePerNumberCents: defaults.pricePerNumberCents,
       soldNumbers: 0,
       reservedNumbers: 0,
@@ -623,10 +764,14 @@ exports.createPixOrder = onCall({
       await refreshPublicState(transaction, newState, config);
     });
 
-    const winningNumbers = await getWinningNumberSet();
+    const prizeAssignments = await getPrizeAssignmentMap(selectedNumbers);
     await updateTicketDocuments(selectedNumbers, (ticketNumber) => ({
       status: 'reservada',
-      premiada: winningNumbers.has(ticketNumber),
+      premiada: prizeAssignments.has(ticketNumber),
+      premioId: prizeAssignments.get(ticketNumber)?.premioId || null,
+      premioNome: prizeAssignments.get(ticketNumber)?.premioNome || null,
+      premioTipo: prizeAssignments.get(ticketNumber)?.premioTipo || null,
+      premioValorCents: prizeAssignments.get(ticketNumber)?.premioValorCents ?? null,
       pedidoId: orderId,
       comprador: userData.nome || userData.name || auth.token.name || null,
       cpf: userData.cpf || null,

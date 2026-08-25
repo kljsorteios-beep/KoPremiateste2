@@ -6,7 +6,9 @@ const path = require('node:path');
 
 const DEFAULTS = {
   total: 150000,
-  winners: 10000,
+  winners: 0,
+  prizePoolCents: 1000000,
+  mainPrizeName: 'Honda XRE 190 2026',
   target: 150000,
   priceCents: 50,
   reservationMinutes: 10,
@@ -31,6 +33,8 @@ function parseArgs(argv) {
 function assertOptions(options) {
   if (!Number.isInteger(options.total) || options.total < 1) throw new Error('total inválido');
   if (!Number.isInteger(options.winners) || options.winners < 0 || options.winners > options.total) throw new Error('winners inválido');
+  if (!Number.isInteger(options.prizePoolCents) || options.prizePoolCents < 0) throw new Error('prizePoolCents inválido');
+  if (typeof options.mainPrizeName !== 'string' || !options.mainPrizeName.trim()) throw new Error('mainPrizeName inválido');
   if (!Number.isInteger(options.target) || options.target < 1 || options.target > options.total) throw new Error('target inválido');
   if (!Number.isInteger(options.shardSize) || options.shardSize < 1 || options.shardSize > 1000) throw new Error('shardSize inválido');
   if (!Number.isInteger(options.preserveExistingCount) || options.preserveExistingCount < 0 || options.preserveExistingCount > options.total) {
@@ -72,8 +76,8 @@ function createData(options) {
     });
   }
 
-  const winnersCsv = winners.map(formatNumber).join('\n') + '\n';
-  const distributionCsv = distributionPool.map(formatNumber).join('\n') + '\n';
+  const winnersCsv = winners.length ? `${winners.map(formatNumber).join('\n')}\n` : '';
+  const distributionCsv = distributionPool.length ? `${distributionPool.map(formatNumber).join('\n')}\n` : '';
   const generationId = crypto.randomUUID();
 
   return {
@@ -123,7 +127,10 @@ async function publishData(options, data, outputDir) {
 
   writer.set(configRef, {
     totalNumbers: options.total,
-    totalWinningNumbers: options.winners,
+    totalWinningNumbers: data.winners.length,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: options.mainPrizeName,
+    additionalPrizePoolCents: options.prizePoolCents,
     targetSoldNumbers: options.target,
     pricePerNumberCents: options.priceCents,
     reservationMinutes: options.reservationMinutes,
@@ -143,6 +150,9 @@ async function publishData(options, data, outputDir) {
   writer.set(publicRef, {
     totalNumbers: options.total,
     targetSoldNumbers: options.target,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: options.mainPrizeName,
+    additionalPrizePoolCents: options.prizePoolCents,
     pricePerNumberCents: options.priceCents,
     soldNumbers: 0,
     reservedNumbers: 0,
@@ -155,9 +165,12 @@ async function publishData(options, data, outputDir) {
   writer.set(auditRef, {
     generationId: data.generationId,
     totalNumbers: options.total,
-    totalWinningNumbers: options.winners,
+    totalWinningNumbers: data.winners.length,
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: options.mainPrizeName,
+    additionalPrizePoolCents: options.prizePoolCents,
     createdAt: FieldValue.serverTimestamp(),
     status: 'sealed',
   });
@@ -178,13 +191,17 @@ async function publishData(options, data, outputDir) {
       numeroFormatado: formatNumber(number),
       generationId: data.generationId,
       status: 'disponivel',
+      premioId: null,
+      premioNome: null,
+      premioTipo: null,
+      premioValorCents: null,
       createdAt: FieldValue.serverTimestamp(),
     });
   }
 
   if (options.writeTicketDocs) {
     for (const number of data.allNumbers) {
-      // Preserva os documentos legados cota/1 ... cota/10000.
+      // Preserva os documentos legados até preserveExistingCount.
       if (number <= options.preserveExistingCount) continue;
       writer.set(db.doc(`cotas/${number}`), {
         numero: number,
@@ -203,7 +220,10 @@ async function publishData(options, data, outputDir) {
   await writeJson(path.join(outputDir, 'publish-result.json'), {
     generationId: data.generationId,
     totalNumbers: options.total,
-    totalWinningNumbers: options.winners,
+    totalWinningNumbers: data.winners.length,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: options.mainPrizeName,
+    additionalPrizePoolCents: options.prizePoolCents,
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
     writeTicketDocs: options.writeTicketDocs,
@@ -227,7 +247,10 @@ async function main() {
   await writeJson(path.join(outputDir, 'manifesto.json'), {
     generationId: data.generationId,
     totalNumbers: options.total,
-    totalWinningNumbers: options.winners,
+    totalWinningNumbers: data.winners.length,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: options.mainPrizeName,
+    additionalPrizePoolCents: options.prizePoolCents,
     targetSoldNumbers: options.target,
     pricePerNumberCents: options.priceCents,
     reservationMinutes: options.reservationMinutes,
@@ -236,7 +259,7 @@ async function main() {
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
     generatedAt: new Date().toISOString(),
-    note: 'O arquivo numeros-premiados.csv é confidencial e não deve ser publicado no frontend ou no GitHub público.',
+    note: 'O arquivo numeros-premiados.csv é confidencial. Com winners=0, nenhum número premiado é gerado até o plano de prêmios ser definido; não publicar este arquivo no frontend ou no GitHub público.',
   });
 
   if (options.publish) {
@@ -247,7 +270,10 @@ async function main() {
     outputDir,
     generationId: data.generationId,
     totalNumbers: options.total,
-    totalWinningNumbers: options.winners,
+    totalWinningNumbers: data.winners.length,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: options.mainPrizeName,
+    additionalPrizePoolCents: options.prizePoolCents,
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
     published: options.publish,

@@ -1,12 +1,12 @@
-#!/usr/bin/env node
-
 const crypto = require('node:crypto');
+const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const TOTAL_NUMBERS = 150000;
-const WINNING_NUMBERS = 10000;
 const SHARD_SIZE = 1000;
 const PRESERVE_LEGACY_UNTIL = 10000;
+const ADDITIONAL_PRIZE_POOL_CENTS = 1000000;
+const MAIN_PRIZE_NAME = 'Honda XRE 190 2026';
 const AVAILABLE_STATUSES = new Set(['disponivel', undefined, null, '']);
 
 function formatNumber(number) {
@@ -22,10 +22,17 @@ function shuffle(values) {
 }
 
 function parseArgs(argv) {
+  const prizesFileArg = argv.find((arg) => arg.startsWith('--prizes-file='));
+  const preserveArg = argv.find((arg) => arg.startsWith('--preserve-until='));
+  const poolArg = argv.find((arg) => arg.startsWith('--additional-prize-pool-cents='));
   return {
     apply: argv.includes('--apply'),
     materializeTickets: argv.includes('--materialize-tickets'),
-    preserveUntil: Number(argv.find((arg) => arg.startsWith('--preserve-until='))?.split('=')[1] || PRESERVE_LEGACY_UNTIL),
+    clearLegacyWinners: argv.includes('--clear-legacy-winners'),
+    keepExistingWinners: argv.includes('--keep-existing-winners'),
+    prizesFile: prizesFileArg ? prizesFileArg.split('=').slice(1).join('=') : '',
+    preserveUntil: Number(preserveArg?.split('=')[1] || PRESERVE_LEGACY_UNTIL),
+    additionalPrizePoolCents: Number(poolArg?.split('=')[1] || ADDITIONAL_PRIZE_POOL_CENTS),
   };
 }
 
@@ -48,31 +55,110 @@ function loadAdmin() {
   };
 }
 
-function buildWinnerSet() {
-  const numbers = Array.from({ length: TOTAL_NUMBERS }, (_, index) => index + 1);
-  return new Set(shuffle(numbers).slice(0, WINNING_NUMBERS));
+function normalizeAssignment(number, value = {}) {
+  const parsedNumber = Number(number);
+  if (!Number.isInteger(parsedNumber) || parsedNumber < 1 || parsedNumber > TOTAL_NUMBERS) {
+    throw new Error(`Número de prêmio inválido: ${number}`);
+  }
+  const premioId = String(value.premioId || value.prizeId || '').trim();
+  const premioNome = String(value.premioNome || value.prizeName || '').trim();
+  const premioTipo = String(value.premioTipo || value.prizeType || '').trim();
+  const rawValue = value.premioValorCents ?? value.prizeValueCents;
+  const premioValorCents = rawValue === undefined || rawValue === null || rawValue === ''
+    ? null
+    : Number(rawValue);
+  if (!premioId || !premioNome || !premioTipo) {
+    throw new Error(`O prêmio do número ${formatNumber(parsedNumber)} precisa de premioId, premioNome e premioTipo.`);
+  }
+  if (premioValorCents !== null && (!Number.isInteger(premioValorCents) || premioValorCents < 0)) {
+    throw new Error(`premioValorCents inválido para o número ${formatNumber(parsedNumber)}.`);
+  }
+  return {
+    numero: parsedNumber,
+    numeroFormatado: formatNumber(parsedNumber),
+    premioId,
+    premioNome,
+    premioTipo,
+    premioValorCents,
+  };
 }
 
-async function readExistingWinners(db) {
-  const snapshot = await db.collection('numerosPremiados').get();
-  const winners = new Set();
-  for (const doc of snapshot.docs) {
-    const data = doc.data() || {};
-    const parsed = Number(data.numero || doc.id);
-    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= TOTAL_NUMBERS) winners.add(parsed);
+async function readPrizeFile(fileName) {
+  if (!fileName) return new Map();
+  const content = await fs.readFile(path.resolve(fileName), 'utf8');
+  const parsed = JSON.parse(content);
+  if (!Array.isArray(parsed)) throw new Error('O arquivo de prêmios deve conter uma lista JSON.');
+  const assignments = new Map();
+  for (const item of parsed) {
+    const assignment = normalizeAssignment(item?.numero ?? item?.number, item);
+    if (assignments.has(assignment.numero)) {
+      throw new Error(`Número de prêmio duplicado: ${assignment.numeroFormatado}`);
+    }
+    assignments.set(assignment.numero, assignment);
   }
-  return winners;
+  return assignments;
+}
+
+async function readExistingPrizeAssignments(db) {
+  const snapshot = await db.collection('numerosPremiados').get();
+  const assignments = new Map();
+  for (const document of snapshot.docs) {
+    const data = document.data() || {};
+    const number = Number(data.numero || document.id);
+    if (!Number.isInteger(number) || number < 1 || number > TOTAL_NUMBERS) continue;
+    assignments.set(number, {
+      numero: number,
+      numeroFormatado: formatNumber(number),
+      premioId: data.premioId || 'legado-sem-catalogo',
+      premioNome: data.premioNome || 'Prêmio legado — revisar antes da abertura',
+      premioTipo: data.premioTipo || 'legado',
+      premioValorCents: Number.isInteger(Number(data.premioValorCents)) ? Number(data.premioValorCents) : null,
+    });
+  }
+  return assignments;
 }
 
 async function readWinnerManifest(db) {
   const snapshot = await db.doc('auditoria/rifa').get();
   const numbers = snapshot.exists ? snapshot.data()?.winnerNumbers : null;
-  if (!Array.isArray(numbers) || numbers.length === 0) return new Set();
-  const winners = new Set(numbers.map(Number).filter((number) => Number.isInteger(number) && number >= 1 && number <= TOTAL_NUMBERS));
-  if (winners.size !== WINNING_NUMBERS) {
-    throw new Error(`O manifesto auditoria/rifa possui ${winners.size} números válidos. Faça uma conferência manual antes de continuar.`);
+  if (!Array.isArray(numbers)) return new Set();
+  return new Set(numbers.map(Number).filter((number) => Number.isInteger(number) && number >= 1 && number <= TOTAL_NUMBERS));
+}
+
+function validatePrizePlan(assignments, additionalPrizePoolCents) {
+  if (!assignments.size) return {
+    principalCount: 0,
+    additionalPrizeCount: 0,
+    additionalPrizeTotalCents: 0,
+  };
+
+  const values = Array.from(assignments.values());
+  const principals = values.filter((prize) => prize.premioTipo === 'principal');
+  const additionals = values.filter((prize) => prize.premioTipo === 'adicional');
+  if (principals.length !== 1) {
+    throw new Error(`O arquivo de prêmios precisa conter exatamente um prêmio principal; encontrados: ${principals.length}.`);
   }
-  return winners;
+  if (principals[0].premioValorCents === null) {
+    throw new Error('O prêmio principal precisa informar premioValorCents.');
+  }
+  if (additionals.length !== values.length - 1) {
+    throw new Error('Cada prêmio deve ter premioTipo igual a principal ou adicional.');
+  }
+  if (additionals.some((prize) => prize.premioValorCents === null)) {
+    throw new Error('Todos os prêmios adicionais precisam informar premioValorCents para controle do fundo.');
+  }
+  const additionalPrizeTotalCents = additionals.reduce(
+    (total, prize) => total + prize.premioValorCents,
+    0,
+  );
+  if (additionalPrizeTotalCents > additionalPrizePoolCents) {
+    throw new Error(`Os prêmios adicionais somam ${additionalPrizeTotalCents} centavos, acima do limite configurado de ${additionalPrizePoolCents} centavos.`);
+  }
+  return {
+    principalCount: principals.length,
+    additionalPrizeCount: additionals.length,
+    additionalPrizeTotalCents,
+  };
 }
 
 async function readExistingTickets(db) {
@@ -113,15 +199,22 @@ function groupShards(numbers) {
   return shards;
 }
 
-async function applyPlan(plan, existing, winnerSet, args) {
-  const { db, FieldValue } = loadAdmin();
-  await db.doc('auditoria/rifa').set({
-    winnerNumbers: Array.from(winnerSet).sort((a, b) => a - b),
-    totalWinningNumbers: WINNING_NUMBERS,
-    generatedAt: new Date().toISOString(),
-    note: 'Manifesto confidencial; não publicar no frontend.',
-  }, { merge: true });
+function assignmentsFromNumbers(numbers) {
+  const assignments = new Map();
+  for (const number of numbers) {
+    assignments.set(number, normalizeAssignment(number, {
+      premioId: 'premio-a-definir',
+      premioNome: 'Prêmio a definir',
+      premioTipo: 'a-definir',
+      premioValorCents: null,
+    }));
+  }
+  return assignments;
+}
 
+async function applyPlan(plan, existing, assignments, args) {
+  const { db, FieldValue } = loadAdmin();
+  const existingPrizeSnapshot = await db.collection('numerosPremiados').get();
   const writer = db.bulkWriter();
   writer.onWriteError((error) => {
     if (error.failedAttempts < 5) return true;
@@ -129,14 +222,33 @@ async function applyPlan(plan, existing, winnerSet, args) {
     return false;
   });
 
+  if (args.clearLegacyWinners) {
+    for (const document of existingPrizeSnapshot.docs) writer.delete(document.ref);
+  }
+
+  await db.doc('auditoria/rifa').set({
+    winnerNumbers: Array.from(assignments.keys()).sort((a, b) => a - b),
+    totalWinningNumbers: assignments.size,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: MAIN_PRIZE_NAME,
+    additionalPrizePoolCents: args.additionalPrizePoolCents,
+    generatedAt: new Date().toISOString(),
+    note: 'Manifesto confidencial; os números e valores devem ser revisados antes da abertura.',
+  }, { merge: true });
+
   if (args.materializeTickets) {
     for (let number = 1; number <= TOTAL_NUMBERS; number += 1) {
       const current = existing.get(number);
       const ticketRef = db.doc(`cotas/${number}`);
+      const prize = assignments.get(number);
       const baseFields = {
         numero: number,
         numeroFormatado: formatNumber(number),
-        premiada: winnerSet.has(number),
+        premiada: Boolean(prize),
+        premioId: prize?.premioId || null,
+        premioNome: prize?.premioNome || null,
+        premioTipo: prize?.premioTipo || null,
+        premioValorCents: prize?.premioValorCents ?? null,
         atualizadoEm: FieldValue.serverTimestamp(),
       };
       if (!current) baseFields.status = 'disponivel';
@@ -153,10 +265,9 @@ async function applyPlan(plan, existing, winnerSet, args) {
     });
   }
 
-  for (const number of winnerSet) {
+  for (const [number, prize] of assignments.entries()) {
     writer.set(db.doc(`numerosPremiados/${formatNumber(number)}`), {
-      numero: number,
-      numeroFormatado: formatNumber(number),
+      ...prize,
       status: 'disponivel',
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
@@ -164,7 +275,10 @@ async function applyPlan(plan, existing, winnerSet, args) {
 
   writer.set(db.doc('configuracoes/rifa'), {
     totalNumbers: TOTAL_NUMBERS,
-    totalWinningNumbers: WINNING_NUMBERS,
+    totalWinningNumbers: assignments.size,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: MAIN_PRIZE_NAME,
+    additionalPrizePoolCents: args.additionalPrizePoolCents,
     targetSoldNumbers: TOTAL_NUMBERS,
     pricePerNumberCents: 50,
     reservationMinutes: 10,
@@ -180,6 +294,9 @@ async function applyPlan(plan, existing, winnerSet, args) {
   writer.set(db.doc('publico/rifa'), {
     totalNumbers: TOTAL_NUMBERS,
     targetSoldNumbers: TOTAL_NUMBERS,
+    prizeModel: 'premio_principal_mais_premios_adicionais',
+    mainPrizeName: MAIN_PRIZE_NAME,
+    additionalPrizePoolCents: args.additionalPrizePoolCents,
     pricePerNumberCents: 50,
     status: 'preparacao',
     updatedAt: FieldValue.serverTimestamp(),
@@ -190,40 +307,57 @@ async function applyPlan(plan, existing, winnerSet, args) {
 
 async function main() {
   const args = parseArgs(process.argv);
+  if (!Number.isInteger(args.preserveUntil) || args.preserveUntil < 0 || args.preserveUntil > TOTAL_NUMBERS) {
+    throw new Error('preserve-until inválido.');
+  }
+  if (!Number.isInteger(args.additionalPrizePoolCents) || args.additionalPrizePoolCents < 0) {
+    throw new Error('additional-prize-pool-cents inválido.');
+  }
+  if (args.clearLegacyWinners && !args.apply) {
+    throw new Error('--clear-legacy-winners só pode ser usado junto com --apply.');
+  }
+
   const { db } = loadAdmin();
   const existing = await readExistingTickets(db);
-  const existingWinners = await readExistingWinners(db);
-  const manifestWinners = await readWinnerManifest(db);
+  const existingAssignments = await readExistingPrizeAssignments(db);
+  const manifestNumbers = await readWinnerManifest(db);
+  const fileAssignments = await readPrizeFile(args.prizesFile);
+  const prizePlan = args.prizesFile
+    ? validatePrizePlan(fileAssignments, args.additionalPrizePoolCents)
+    : validatePrizePlan(assignmentsFromNumbers([]), args.additionalPrizePoolCents);
   const { available, preservedClaimed } = buildAvailableNumbers(existing, args.preserveUntil);
-  let winnerSet;
-  let winnerSource;
-  if (existingWinners.size === WINNING_NUMBERS) {
-    winnerSet = existingWinners;
-    winnerSource = 'existing';
-  } else if (manifestWinners.size === WINNING_NUMBERS) {
-    winnerSet = manifestWinners;
-    winnerSource = 'manifest';
-    if (existingWinners.size > 0 && [...existingWinners].some((number) => !winnerSet.has(number))) {
-      throw new Error('A coleção numerosPremiados contém números fora do manifesto auditoria/rifa; faça uma conferência manual.');
-    }
-  } else if (existingWinners.size > 0) {
-    throw new Error(`A coleção numerosPremiados possui apenas ${existingWinners.size} números e não há manifesto completo para recuperação.`);
-  } else {
-    winnerSet = buildWinnerSet();
-    winnerSource = 'new-random-generation';
+
+  let assignments = fileAssignments;
+  let winnerSource = args.prizesFile ? 'explicit-prizes-file' : 'none-configured';
+  if (!assignments.size && args.keepExistingWinners) {
+    assignments = existingAssignments.size ? existingAssignments : assignmentsFromNumbers(manifestNumbers);
+    winnerSource = existingAssignments.size ? 'existing-explicitly-kept' : 'manifest-explicitly-kept';
   }
+  if (!args.prizesFile && !args.keepExistingWinners && existingAssignments.size > 0 && args.apply) {
+    throw new Error('A coleção numerosPremiados já possui registros. Informe --prizes-file=... ou use --keep-existing-winners após revisar o backup; para remover o legado, use --clear-legacy-winners.');
+  }
+  if (args.clearLegacyWinners && !args.prizesFile) {
+    assignments = new Map();
+    winnerSource = 'legacy-cleared-no-prizes';
+  }
+
   const shards = groupShards(available);
   const plan = {
     totalNumbers: TOTAL_NUMBERS,
-    winningNumbers: WINNING_NUMBERS,
+    winningNumbers: assignments.size,
     existingDocuments: existing.size,
+    existingPrizeDocuments: existingAssignments.size,
     availableNumbers: available.length,
     preservedClaimed,
     shards: shards.length,
     winnerSource,
+    additionalPrizePoolCents: args.additionalPrizePoolCents,
+    principalCount: prizePlan.principalCount,
+    additionalPrizeCount: prizePlan.additionalPrizeCount,
+    additionalPrizeTotalCents: prizePlan.additionalPrizeTotalCents,
     apply: args.apply,
     ticketWriteMode: args.materializeTickets ? 'all-150000-documents' : 'sold-and-reserved-on-demand',
-    warning: 'Modo compacto: --apply não cria 150 mil documentos cotas; use --materialize-tickets somente com faturamento e quota suficientes.',
+    warning: 'O modelo não gera vencedores automaticamente. Defina o arquivo de prêmios e revise backup, regras, quotas e regulamento antes de aplicar.',
   };
 
   console.log(JSON.stringify(plan, null, 2));
@@ -232,7 +366,7 @@ async function main() {
     return;
   }
 
-  await applyPlan({ shards }, existing, winnerSet, args);
+  await applyPlan({ shards }, existing, assignments, args);
   console.log('Expansão concluída. A campanha permanece em preparacao até ser aberta no painel administrativo.');
 }
 

@@ -291,7 +291,8 @@
 
                             const numbers = document.createElement('p');
                             numbers.style.cssText = 'font-size: 0.85rem; color: #ccc; margin-top: 4px;';
-                            numbers.textContent = `Números: ${(compra.numeros || []).join(', ') || 'Nenhum'}`;
+                            const formattedNumbers = (compra.numeros || []).map((number) => String(number).padStart(6, '0'));
+                            numbers.textContent = `Números: ${formattedNumbers.join(', ') || 'Nenhum'}`;
 
                             const details = document.createElement('div');
                             details.append(title, numbers);
