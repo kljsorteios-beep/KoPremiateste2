@@ -4,7 +4,7 @@
 
 O projeto separa o frontend público da lógica crítica. O navegador não escolhe números, não altera status de cotas, não confirma pagamentos e não recebe a lista de números com prêmio. Ele solicita uma reserva e exibe o QR Code Pix retornado pelo backend.
 
-A campanha possui **150.000 números**. O modelo de premiação agora é `premio_principal_mais_premios_adicionais`: um prêmio principal, atualmente descrito como Honda XRE 190 2026, e prêmios adicionais cujo fundo total configurado é de **R$ 10.000,00**. Esse valor é um orçamento de premiação e não significa 10.000 números vencedores. A quantidade real de números premiados só existe depois que o responsável define o mapa de prêmios.
+A campanha possui **150.000 números** e reserva **10.000 números vencedores escolhidos aleatoriamente**. O modelo de premiação é `premio_principal_mais_premios_adicionais`: um prêmio principal, atualmente descrito como Honda XRE 190 2026, e prêmios adicionais cujo fundo total configurado é de **R$ 10.000,00**. Os números vencedores são definidos desde a geração, mas os nomes e valores dos prêmios podem permanecer pendentes e privados até a decisão do administrador.
 
 A reserva usa transações atômicas e shards de disponibilidade no Firestore. O pedido fica com status `aguardando_pagamento` por 10 minutos. Quando o PagBank envia um webhook autenticado indicando `PAID`, o backend valida o pedido, o valor e a moeda, converte a reserva em compra definitiva, grava `compras/{pedidoId}`, atualiza os documentos de `cotas` e incrementa o cotômetro. Uma rotina agendada libera pedidos expirados.
 
@@ -18,7 +18,7 @@ A reserva usa transações atômicas e shards de disponibilidade no Firestore. O
 | `compra.js` | Cotômetro, menu autenticado, reserva, QR Code Pix, copia e cola e contador de 10 minutos. |
 | `functions/index.js` | Reserva atômica, PagBank, webhook, expiração, estado público, painel administrativo e gatilho de e-mail. |
 | `functions/package.json` | Dependências e scripts das Cloud Functions. |
-| `scripts/generate-raffle.js` | Geração dos 150.000 números, hashes e publicação opcional. Não gera vencedores por padrão. |
+| `scripts/generate-raffle.js` | Geração dos 150.000 números, dos 10.000 vencedores aleatórios, hashes e publicação opcional. |
 | `scripts/expand-firestore.js` | Normalização do Firestore e carga do mapa explícito de prêmios. |
 | `admin.html` | Configuração da meta/status e consulta protegida dos números com prêmio. |
 | `firestore.rules` | Bloqueia manipulação direta de cotas, disponibilidade, pedidos, compras e prêmios pelo navegador. |
@@ -34,7 +34,7 @@ A coleção `pedidos` guarda a reserva e o estado do pagamento. Os status princi
 
 A coleção `compras` contém somente pedidos confirmados e possui `uid`, dados básicos do comprador, `email`, `numeros`, `quantidade`, `totalCents`, `status`, `pagbankOrderId` e `paidAt`. A área Minha Conta consulta os documentos filtrados pelo próprio UID e exibe os números formatados.
 
-A coleção `numerosPremiados` deve conter somente os números que realmente receberam alguma premiação. Cada documento pode ter os campos `numero`, `numeroFormatado`, `premioId`, `premioNome`, `premioTipo`, `premioValorCents`, `status` e `generationId`. O prêmio principal e os prêmios adicionais podem usar `premioTipo` diferentes. A quantidade dessa coleção não precisa ser 10.000.
+A coleção `numerosPremiados` contém os 10.000 números vencedores, inicialmente com `isWinningNumber: true` e `premioStatus: "pendente"`. Cada documento pode receber depois `premioId`, `premioNome`, `premioTipo` e `premioValorCents`. O número e o mapa de prêmios não são lidos pelo frontend público.
 
 A coleção `auditoria/rifa` guarda o conjunto confidencial de números com prêmio, seus hashes e metadados da geração. A função `getWinningNumbers` só responde a usuários reconhecidos como administradores. A coleção `numerosPremiados` e a auditoria continuam bloqueadas para o navegador público.
 
@@ -77,7 +77,7 @@ O status da entrega é salvo em `compras/{pedidoId}.confirmationEmail`. Os estad
 
 ## Arquivo explícito do plano de prêmios
 
-O script `scripts/expand-firestore.js` não gera mais 10.000 vencedores aleatórios. Para publicar o mapa real, crie localmente um arquivo JSON confidencial, por exemplo:
+O script `scripts/expand-firestore.js` gera 10.000 vencedores aleatórios quando nenhum mapa é fornecido. Para atribuir a XRE e os demais prêmios, crie depois localmente um arquivo JSON confidencial, por exemplo:
 
 ```json
 [
@@ -118,14 +118,14 @@ O modo compacto não materializa 150.000 documentos `cotas`; esses documentos s�
 
 ## Geração local dos 150.000 números
 
-O comando abaixo gera os arquivos localmente, sem publicar e sem criar vencedores:
+O comando abaixo gera os arquivos localmente, sem publicar, com 10.000 vencedores aleatórios e um arquivo confidencial de números premiados:
 
 ```bash
 node scripts/generate-raffle.js --output=generated-raffle
-node scripts/validate-generated.js generated-raffle --expected-winners=0
+node scripts/validate-generated.js generated-raffle --expected-winners=10000
 ```
 
-Se o mapa real já estiver definido e a geração precisar registrar números premiados, passe a quantidade com `--winners=N` e revise o resultado. O fundo adicional pode ser informado em centavos:
+Se o plano aprovado usar outra quantidade, passe `--winners=N`; para esta campanha, o valor esperado é 10.000. Revise sempre o resultado e mantenha os arquivos de vencedores fora do frontend e do GitHub público. O fundo adicional pode ser informado em centavos:
 
 ```bash
 node scripts/generate-raffle.js \

@@ -5,7 +5,7 @@
 | Controle | Verificação |
 |---|---|
 | Quantidade total | O projeto mantém 150.000 números como total e o painel rejeita uma meta superior a esse limite. |
-| Modelo de prêmios | O texto e a configuração distinguem 150.000 números de um fundo adicional de R$ 10.000,00. A quantidade de números com prêmio passou a ser variável e não é mais gerada automaticamente como 10.000. |
+| Modelo de prêmios | O texto e a configuração distinguem 150.000 números de 10.000 cotas vencedoras aleatórias. Os nomes e valores dos prêmios podem permanecer pendentes e privados. |
 | Prêmio principal e adicionais | O backend suporta `premioTipo`, `premioNome`, `premioId` e `premioValorCents` na coleção `numerosPremiados`, permitindo separar o prêmio principal dos adicionais. |
 | Distribuição | Os números são distribuídos em shards e escolhidos aleatoriamente no backend. O navegador não lê o pool de disponibilidade. |
 | Duplicidade | A retirada do pool ocorre em transação Firestore; reservas concorrentes não devem retirar o mesmo número. |
@@ -23,9 +23,9 @@
 
 ## Testes locais realizados
 
-A URL pública `https://ko-premiateste2.vercel.app/` carregou a página inicial, a galeria, o cotômetro inicial em 0 de 150.000, os controles de quantidade e o botão de participação. O console da página não apresentou mensagens de erro durante o carregamento observado. A versão publicada consultada ainda era a anterior à alteração do texto, pois o deploy da cópia modificada não foi executado.
+A URL pública `https://ko-premiateste2.vercel.app/` carregou a página inicial, a galeria, o cotômetro inicial e os controles de quantidade. A cópia revisada oculta a linha detalhada e deixa visível somente a porcentagem do cotômetro. O console da página não apresentou mensagens de erro durante o carregamento observado. A versão publicada consultada ainda era a anterior à alteração do texto, pois o deploy da cópia modificada não foi executado.
 
-Na cópia atualizada, foram executadas verificações de sintaxe nos arquivos JavaScript antes da finalização. O gerador e o validador foram ajustados para 150.000 números e zero vencedores por padrão, e a expansão do Firestore foi alterada para exigir um arquivo explícito de prêmios quando registros reais forem cadastrados.
+Na cópia revisada, o gerador cria 150.000 números e 10.000 vencedores aleatórios por padrão. A expansão grava esses vencedores com `isWinningNumber: true` e `premioStatus: "pendente"`, permitindo atribuir a XRE e os demais prêmios depois sem publicar o mapa.
 
 ## Limitações e ações pendentes
 
@@ -37,7 +37,7 @@ A conta de faturamento do Google Cloud não foi criada nem vinculada nesta revis
 
 ## Decisão de segurança
 
-A campanha deve permanecer em `preparacao` até que o responsável defina os números premiados, o valor e a divisão dos prêmios adicionais, revise o regulamento, publique as Functions, valide o webhook em sandbox e confirme a entrega do e-mail. Não foi feita nenhuma alteração destrutiva no banco de produção.
+A campanha deve permanecer em `preparacao` até que o responsável revise os 10.000 números vencedores, defina a atribuição da XRE e a divisão dos prêmios adicionais, revise o regulamento, publique as Functions, valide o webhook em sandbox e confirme a entrega do e-mail. Não foi feita nenhuma alteração destrutiva no banco de produção.
 
 
 ## Achado crítico no ambiente publicado — 25/08/2026

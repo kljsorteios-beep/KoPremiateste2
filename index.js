@@ -19,10 +19,10 @@ const PAGBANK_WEBHOOK_TOKEN = defineSecret('PAGBANK_WEBHOOK_TOKEN');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
 const TOTAL_NUMBERS_DEFAULT = 150000;
-// A quantidade de números premiados depende do plano de premiação final.
-// Não gerar automaticamente 10.000 números: o prêmio principal e os prêmios
-// adicionais devem ser cadastrados explicitamente antes da abertura da venda.
-const WINNING_NUMBERS_DEFAULT = 0;
+// A campanha reserva 10.000 números vencedores aleatórios.
+// Os nomes e valores dos prêmios são cadastrados separadamente e permanecem
+// privados até a divulgação autorizada pelo administrador.
+const WINNING_NUMBERS_DEFAULT = 10000;
 const ADDITIONAL_PRIZE_POOL_CENTS_DEFAULT = 1000000;
 const PRICE_PER_NUMBER_CENTS_DEFAULT = 50;
 const RESERVATION_MINUTES_DEFAULT = 10;
@@ -239,14 +239,18 @@ async function getPrizeAssignmentMap(numbers = null) {
   for (const document of documents) {
     if (!document.exists) continue;
     const data = document.data() || {};
-    // Registros antigos sem um prêmio catalogado não são considerados premiados.
-    if (!data.premioId || !data.premioNome || !data.premioTipo) continue;
+    // Números vencedores podem estar aguardando a definição do prêmio.
+    // Registros legados sem marcador de vencedora ou catálogo continuam ignorados.
+    const isWinningNumber = data.isWinningNumber === true;
+    const hasCatalogedPrize = Boolean(data.premioId && data.premioNome && data.premioTipo);
+    if (!isWinningNumber && !hasCatalogedPrize) continue;
     const number = parseTicketNumber(data.numero || document.id);
     if (number < 1 || number > TOTAL_NUMBERS_DEFAULT) continue;
     assignments.set(number, {
       premioId: data.premioId || null,
       premioNome: data.premioNome || null,
       premioTipo: data.premioTipo || null,
+      premioStatus: data.premioStatus || (hasCatalogedPrize ? 'atribuido' : 'pendente'),
       premioValorCents: Number.isInteger(Number(data.premioValorCents))
         ? Number(data.premioValorCents)
         : null,
@@ -472,6 +476,7 @@ async function confirmPaidOrder(orderId, payload) {
       premioId: prizeAssignments.get(ticketNumber)?.premioId || null,
       premioNome: prizeAssignments.get(ticketNumber)?.premioNome || null,
       premioTipo: prizeAssignments.get(ticketNumber)?.premioTipo || null,
+      premioStatus: prizeAssignments.get(ticketNumber)?.premioStatus || null,
       premioValorCents: prizeAssignments.get(ticketNumber)?.premioValorCents ?? null,
       pedidoId: orderId,
       comprador: buyerName,
@@ -771,6 +776,7 @@ exports.createPixOrder = onCall({
       premioId: prizeAssignments.get(ticketNumber)?.premioId || null,
       premioNome: prizeAssignments.get(ticketNumber)?.premioNome || null,
       premioTipo: prizeAssignments.get(ticketNumber)?.premioTipo || null,
+      premioStatus: prizeAssignments.get(ticketNumber)?.premioStatus || null,
       premioValorCents: prizeAssignments.get(ticketNumber)?.premioValorCents ?? null,
       pedidoId: orderId,
       comprador: userData.nome || userData.name || auth.token.name || null,

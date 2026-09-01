@@ -1,7 +1,7 @@
 {
   "name": "k-premia-functions",
   "private": true,
-  "description": "Backend seguro da rifa K-Premia com Firebase e PagBank Pix",
+  "description": "Backend seguro da rifa Kóòpremios com Firebase e PagBank Pix",
   "engines": {
     "node": "20"
   },

@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const DEFAULTS = {
   total: 150000,
-  winners: 0,
+  winners: 10000,
   prizePoolCents: 1000000,
   mainPrizeName: 'Honda XRE 190 2026',
   target: 150000,
@@ -191,9 +191,11 @@ async function publishData(options, data, outputDir) {
       numeroFormatado: formatNumber(number),
       generationId: data.generationId,
       status: 'disponivel',
+      isWinningNumber: true,
       premioId: null,
       premioNome: null,
       premioTipo: null,
+      premioStatus: 'pendente',
       premioValorCents: null,
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -259,7 +261,7 @@ async function main() {
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
     generatedAt: new Date().toISOString(),
-    note: 'O arquivo numeros-premiados.csv é confidencial. Com winners=0, nenhum número premiado é gerado até o plano de prêmios ser definido; não publicar este arquivo no frontend ou no GitHub público.',
+    note: 'O arquivo numeros-premiados.csv é confidencial. São gerados 10.000 números vencedores aleatórios por padrão, mas os nomes e valores dos prêmios podem ser definidos depois; não publicar este arquivo no frontend ou no GitHub público.',
   });
 
   if (options.publish) {

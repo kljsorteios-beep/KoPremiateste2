@@ -2,7 +2,7 @@
 
 Site da campanha com Firebase Authentication, Firestore e Cloud Functions para reserva de números e integração Pix PagBank.
 
-A campanha utiliza 150.000 números. O plano de premiação é separado da quantidade de números: há um prêmio principal, atualmente a Honda XRE 190 2026, e um fundo de prêmios adicionais de R$ 10.000,00. O valor de R$ 10.000,00 não significa 10.000 cotas premiadas.
+A campanha utiliza 150.000 números e reserva 10.000 cotas vencedoras escolhidas aleatoriamente com fonte segura. O plano de premiação é separado: há um prêmio principal, atualmente a Honda XRE 190 2026, e prêmios adicionais que podem totalizar R$ 10.000,00. Os números vencedores são confidenciais; os nomes e valores dos prêmios podem ser definidos posteriormente pelo administrador.
 
 ## Desenvolvimento local
 
@@ -21,7 +21,7 @@ npm --prefix functions run lint
 
 ## Modelo de prêmios
 
-Não publique uma lista automática de 10.000 vencedores. O mapa real de prêmios deve ser criado em um arquivo JSON confidencial contendo somente os números que realmente receberão prêmio e os campos `premioId`, `premioNome`, `premioTipo` e, quando aplicável, `premioValorCents`. O script `scripts/expand-firestore.js` não gera números premiados por padrão.
+O gerador cria 10.000 números vencedores aleatórios por padrão. O arquivo `numeros-premiados.csv` e o manifesto são confidenciais e nunca devem ser publicados no frontend ou no GitHub público. Os prêmios podem começar com `premioStatus: "pendente"` e ser definidos depois pelo administrador, usando os campos `premioId`, `premioNome`, `premioTipo` e, quando aplicável, `premioValorCents`.
 
 ## Expansão segura do Firestore
 
