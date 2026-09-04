@@ -226,6 +226,23 @@
             <button class="btn-logout" onclick="fazerLogout()">Sair da Conta</button>
         </div>
 
+        <div id="admin-section" style="display: none;">
+            <div class="profile-card" style="border-color: var(--gold-light); background: rgba(212, 175, 55, 0.05);">
+                <h2 style="color: var(--gold-light);">Painel do Administrador</h2>
+                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">
+                    Acesso exclusivo para gestão de sorteios e auditoria.
+                </p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <a href="roleta.html" style="background: var(--primary); color: #081021; padding: 12px 20px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; transition: var(--transition); text-align: center; flex: 1; min-width: 200px;">
+                        🎡 Abrir Roleta de Sorteios
+                    </a>
+                    <a href="admin.html" style="background: var(--surface-hover); color: var(--text-color); padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: var(--transition); text-align: center; flex: 1; min-width: 200px; border: 1px solid rgba(212, 175, 55, 0.3);">
+                        ⚙️ Gestão Geral
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <div class="orders-card">
             <h2>Meus Títulos (Cotas)</h2>
             <div id="listaCotas">
@@ -249,6 +266,12 @@
                 document.getElementById('userEmail').innerText = user.email;
 
                 try {
+                    // --- CHECK ADMIN STATUS ---
+                    const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
+                    if (adminCheck.data.isAdmin) {
+                        document.getElementById('admin-section').style.display = 'block';
+                    }
+
                     const userDocRef = doc(db, "usuarios", user.uid);
                     let userDoc = await getDoc(userDocRef);
 

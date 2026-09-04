@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roleta de Sorteios | Kóòpremios</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold-dark: #8a631c;
+            --gold-mid: #d4af37;
+            --gold-light: #fced9e;
+            --gold-gradient: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-mid) 25%, var(--gold-light) 50%, var(--gold-mid) 75%, var(--gold-dark) 100%);
+            --primary: #d4af37;
+            --bg-color: #081021;
+            --surface-color: #0f172a;
+            --surface-hover: #1e293b;
+            --text-color: #e1e1e6;
+            --text-muted: #a8a8b3;
+            --radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); min-height: 100vh; display: flex; flex-direction: column; }
+
+        header.navbar {
+            background-color: rgba(8, 16, 33, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--surface-color);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+        .nav-content { display: flex; justify-content: space-between; align-items: center; height: 70px; }
+        .logo { font-size: 24px; font-weight: 900; letter-spacing: 1px; text-decoration: none; color: inherit; }
+        .text-gold { background: var(--gold-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; color: transparent; }
+        .back-link { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-weight: 600; font-size: 14px; text-decoration: none; transition: var(--transition); }
+        .back-link:hover { color: var(--primary); }
+
+        main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
+
+        /* Roleta Styles */
+        .roulette-container { position: relative; width: 350px; height: 350px; margin-bottom: 40px; }
+        .wheel {
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            border: 10px solid var(--gold-mid);
+            position: relative;
+            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
+            background: conic-gradient(
+                var(--gold-dark) 0deg 45deg,
+                var(--surface-color) 45deg 90deg,
+                var(--gold-dark) 90deg 135deg,
+                var(--surface-color) 135deg 180deg,
+                var(--gold-dark) 180deg 225deg,
+                var(--surface-color) 225deg 270deg,
+                var(--gold-dark) 270deg 315deg,
+                var(--surface-color) 315deg 360deg
+            );
+            box-shadow: 0 0 50px rgba(212, 175, 55, 0.3);
+        }
+        .wheel-pointer {
+            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid var(--gold-light);
+            z-index: 10;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+        .wheel-center {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 40px; height: 40px; background: var(--gold-mid);
+            border-radius: 50%; z-index: 5;
+            border: 4px solid var(--bg-color);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* Controls */
+        .controls { background: var(--surface-color); padding: 30px; border-radius: var(--radius); border: 1px solid rgba(212, 175, 55, 0.2); text-align: center; width: 100%; max-width: 500px; }
+        .mode-switch { display: flex; gap: 10px; margin-bottom: 25px; background: var(--bg-color); padding: 5px; border-radius: 10px; }
+        .mode-btn {
+            flex: 1; padding: 10px; border-radius: 8px; border: none;
+            background: transparent; color: var(--text-muted);
+            font-weight: 600; cursor: pointer; transition: var(--transition);
+        }
+        .mode-btn.active { background: var(--primary); color: #081021; }
+
+        .btn-spin {
+            background: var(--gold-gradient); color: #081021;
+            padding: 15px 40px; border-radius: 8px; font-weight: 900;
+            font-size: 1.2rem; cursor: pointer; border: none;
+            transition: var(--transition); width: 100%;
+        }
+        .btn-spin:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+        .btn-spin:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 0 20px rgba(212, 175, 55, 0.4); }
+
+        .stats { margin-top: 20px; font-size: 0.9rem; color: var(--text-muted); }
+        .stats span { color: var(--primary); font-weight: 700; }
+
+        /* Result Overlay */
+        #result-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+            backdrop-filter: blur(8px);
+        }
+        .result-card {
+            background: var(--surface-color); padding: 40px; border-radius: 20px;
+            border: 2px solid var(--primary); text-align: center; max-width: 400px;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .result-card h2 { color: var(--primary); font-size: 2rem; margin-bottom: 10px; }
+        .result-card p { margin-bottom: 20px; font-size: 1.1rem; }
+        .btn-close { background: var(--surface-hover); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; border: none; }
+
+        footer { background: #040812; padding: 20px 0; text-align: center; border-top: 1px solid var(--surface-color); }
+        footer p { color: var(--text-muted); font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">Kóò<span class="text-gold">premios</span></a>
+            <a href="perfil.html" class="back-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Voltar ao Perfil
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <div class="roulette-container">
+            <div class="wheel-pointer"></div>
+            <div class="wheel-center"></div>
+            <div id="wheel" class="wheel"></div>
+        </div>
+
+        <div class="controls">
+            <div class="mode-switch">
+                <button id="mode-xre" class="mode-btn active" onclick="setMode('xre')">Sorteio XRE</button>
+                <button id="mode-adicional" class="mode-btn" onclick="setMode('adicional')">Sorteio Adicional</button>
+            </div>
+            <button id="btn-spin" class="btn-spin" onclick="spinWheel()">GIRAR ROLETA</button>
+            <div class="stats" id="stats-display">
+                Carregando estatísticas...
+            </div>
+        </div>
+    </main>
+
+    <div id="result-overlay">
+        <div class="result-card">
+            <h2 id="res-title">Temos um Ganhador!</h2>
+            <p id="res-details"></p>
+            <button class="btn-close" onclick="closeResult()">Fechar</button>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Kóòpremios. Painel Administrativo.</p>
+        </div>
+    </footer>
+
+    <script type="module">
+        import { auth, functions, httpsCallable } from './firebase-client.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { db } from './firebase-client.js';
+        import { collection, query, where, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        let currentMode = 'xre';
+        let isSpinning = false;
+        let rotation = 0;
+
+        window.setMode = (mode) => {
+            currentMode = mode;
+            document.getElementById('mode-xre').classList.toggle('active', mode === 'xre');
+            document.getElementById('mode-adicional').classList.toggle('active', mode === 'adicional');
+        };
+
+        // Live count of winning quotes
+        onSnapshot(query(collection(db, "ganhadores"), where("categoria", "==", "adicional")), (snapshot) => {
+            const count = snapshot.size;
+            document.getElementById('stats-display').innerHTML = `Cotas Premiadas Vendidas: <span>${count}</span> / 10.000`;
+        });
+
+        async function spinWheel() {
+            if (isSpinning) return;
+
+            const btn = document.getElementById('btn-spin');
+            const wheel = document.getElementById('wheel');
+
+            try {
+                btn.disabled = true;
+                isSpinning = true;
+
+                let winnerData;
+                if (currentMode === 'xre') {
+                    const res = await httpsCallable(functions, 'drawXreWinner')();
+                    winnerData = res.data.winner;
+                } else {
+                    const res = await httpsCallable(functions, 'getRandomBoughtWinningQuote')();
+                    winnerData = res.data.winner;
+                }
+
+                // Animation logic: spins 5-10 times + random offset
+                const extraSpins = Math.floor(Math.random() * 5) + 5;
+                const randomDegree = Math.floor(Math.random() * 360);
+                rotation += (extraSpins * 360) + randomDegree;
+
+                wheel.style.transform = `rotate(${rotation}deg)`;
+
+                setTimeout(() => {
+                    showResult(winnerData);
+                    isSpinning = false;
+                    btn.disabled = false;
+                }, 4000);
+
+            } catch (error) {
+                alert("Erro ao realizar sorteio: " + error.message);
+                isSpinning = false;
+                btn.disabled = false;
+            }
+        }
+
+        function showResult(winner) {
+            const overlay = document.getElementById('result-overlay');
+            const details = document.getElementById('res-details');
+
+            details.innerHTML = `
+                <strong>Número:</strong> ${String(winner.numero).padStart(6, '0')}<br>
+                <strong>Nome:</strong> ${winner.comprador || winner.nome || 'Não informado'}<br>
+                <strong>E-mail:</strong> ${winner.email || 'Não informado'}
+            `;
+            overlay.style.display = 'flex';
+        }
+
+        window.closeResult = () => {
+            document.getElementById('result-overlay').style.display = 'none';
+        };
+
+        window.spinWheel = spinWheel;
+
+        // Auth protection
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "login.html";
+                return;
+            }
+            try {
+                const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
+                if (!adminCheck.data.isAdmin) {
+                    alert("Acesso negado. Esta página é exclusiva para administradores.");
+                    window.location.href = "perfil.html";
+                }
+            } catch (e) {
+                window.location.href = "perfil.html";
+            }
+        });
+    </script>
+</body>
+</html>
