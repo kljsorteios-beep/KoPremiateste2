@@ -3,9 +3,9 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const TOTAL_NUMBERS = 150000;
-const WINNING_NUMBERS = 10000;
 const SHARD_SIZE = 1000;
 const PRESERVE_LEGACY_UNTIL = 10000;
+const WINNING_NUMBER_COUNT = 10000;
 const ADDITIONAL_PRIZE_POOL_CENTS = 1000000;
 const MAIN_PRIZE_NAME = 'Honda XRE 190 2026';
 const AVAILABLE_STATUSES = new Set(['disponivel', undefined, null, '']);
@@ -77,12 +77,12 @@ function normalizeAssignment(number, value = {}) {
   return {
     numero: parsedNumber,
     numeroFormatado: formatNumber(parsedNumber),
-    isWinningNumber: true,
     premioId,
     premioNome,
     premioTipo,
-    premioStatus: 'atribuido',
     premioValorCents,
+    isWinningNumber: value.isWinningNumber !== false,
+    prizeCategory: value.prizeCategory || 'adicional',
   };
 }
 
@@ -109,16 +109,15 @@ async function readExistingPrizeAssignments(db) {
     const data = document.data() || {};
     const number = Number(data.numero || document.id);
     if (!Number.isInteger(number) || number < 1 || number > TOTAL_NUMBERS) continue;
-    if (data.isWinningNumber !== true && !(data.premioId && data.premioNome && data.premioTipo)) continue;
     assignments.set(number, {
       numero: number,
       numeroFormatado: formatNumber(number),
-      isWinningNumber: true,
-      premioId: data.premioId || null,
-      premioNome: data.premioNome || null,
-      premioTipo: data.premioTipo || null,
-      premioStatus: data.premioStatus || (data.premioId ? 'atribuido' : 'pendente'),
+      premioId: data.premioId || 'legado-sem-catalogo',
+      premioNome: data.premioNome || 'Prêmio legado — revisar antes da abertura',
+      premioTipo: data.premioTipo || 'legado',
       premioValorCents: Number.isInteger(Number(data.premioValorCents)) ? Number(data.premioValorCents) : null,
+      isWinningNumber: true,
+      prizeCategory: 'adicional',
     });
   }
   return assignments;
@@ -139,18 +138,16 @@ function validatePrizePlan(assignments, additionalPrizePoolCents) {
   };
 
   const values = Array.from(assignments.values());
-  const pending = values.filter((prize) => prize.premioStatus === 'pendente');
-  const assigned = values.filter((prize) => prize.premioStatus !== 'pendente');
-  const principals = assigned.filter((prize) => prize.premioTipo === 'principal');
-  const additionals = assigned.filter((prize) => prize.premioTipo === 'adicional');
-  if (principals.length > 1) {
-    throw new Error(`O plano pode conter apenas um prêmio principal; encontrados: ${principals.length}.`);
+  const principals = values.filter((prize) => prize.premioTipo === 'principal');
+  const additionals = values.filter((prize) => prize.premioTipo === 'adicional');
+  if (principals.length !== 1) {
+    throw new Error(`O arquivo de prêmios precisa conter exatamente um prêmio principal; encontrados: ${principals.length}.`);
   }
-  if (principals.length === 1 && principals[0].premioValorCents === null) {
+  if (principals[0].premioValorCents === null) {
     throw new Error('O prêmio principal precisa informar premioValorCents.');
   }
-  if (additionals.length + principals.length + pending.length !== values.length) {
-    throw new Error('Cada prêmio deve ter premioTipo igual a principal ou adicional, ou estar pendente.');
+  if (additionals.length !== values.length - 1) {
+    throw new Error('Cada prêmio deve ter premioTipo igual a principal ou adicional.');
   }
   if (additionals.some((prize) => prize.premioValorCents === null)) {
     throw new Error('Todos os prêmios adicionais precisam informar premioValorCents para controle do fundo.');
@@ -166,7 +163,6 @@ function validatePrizePlan(assignments, additionalPrizePoolCents) {
     principalCount: principals.length,
     additionalPrizeCount: additionals.length,
     additionalPrizeTotalCents,
-    pendingPrizeCount: pending.length,
   };
 }
 
@@ -208,26 +204,28 @@ function groupShards(numbers) {
   return shards;
 }
 
+function selectRandomNumbers(excluded, count) {
+  const candidates = [];
+  for (let number = 1; number <= TOTAL_NUMBERS; number += 1) {
+    if (!excluded.has(number)) candidates.push(number);
+  }
+  shuffle(candidates);
+  return candidates.slice(0, count);
+}
+
 function assignmentsFromNumbers(numbers) {
   const assignments = new Map();
   for (const number of numbers) {
-    assignments.set(number, {
-      numero: number,
-      numeroFormatado: formatNumber(number),
-      isWinningNumber: true,
-      premioId: null,
-      premioNome: null,
-      premioTipo: null,
-      premioStatus: 'pendente',
+    assignments.set(number, normalizeAssignment(number, {
+      premioId: 'premio-a-definir',
+      premioNome: 'Prêmio a definir',
+      premioTipo: 'a-definir',
       premioValorCents: null,
-    });
+      isWinningNumber: true,
+      prizeCategory: 'adicional',
+    }));
   }
   return assignments;
-}
-
-function generatePendingAssignments() {
-  const numbers = shuffle(Array.from({ length: TOTAL_NUMBERS }, (_, index) => index + 1));
-  return assignmentsFromNumbers(numbers.slice(0, WINNING_NUMBERS));
 }
 
 async function applyPlan(plan, existing, assignments, args) {
@@ -340,41 +338,35 @@ async function main() {
   const existingAssignments = await readExistingPrizeAssignments(db);
   const manifestNumbers = await readWinnerManifest(db);
   const fileAssignments = await readPrizeFile(args.prizesFile);
+  const prizePlan = args.prizesFile
+    ? validatePrizePlan(fileAssignments, args.additionalPrizePoolCents)
+    : { principalCount: 0, additionalPrizeCount: WINNING_NUMBER_COUNT, additionalPrizeTotalCents: 0 };
   const { available, preservedClaimed } = buildAvailableNumbers(existing, args.preserveUntil);
 
-  let assignments = new Map(existingAssignments);
-  let winnerSource = existingAssignments.size ? 'existing-winners' : 'none-configured';
-  if (args.prizesFile) {
-    if (!existingAssignments.size) {
-      throw new Error('Gere e aplique primeiro os 10.000 vencedores aleatórios; depois use --prizes-file para atribuir os prêmios sem trocar o conjunto de números.');
-    }
-    for (const [number, prize] of fileAssignments.entries()) {
-      if (!assignments.has(number)) {
-        throw new Error(`O número ${formatNumber(number)} não pertence ao conjunto privado de vencedores já gerado.`);
-      }
-      assignments.set(number, { ...assignments.get(number), ...prize, isWinningNumber: true, premioStatus: 'atribuido' });
-    }
-    winnerSource = 'existing-winners-plus-prize-plan';
-  }
-  if (!assignments.size && args.keepExistingWinners) {
-    assignments = existingAssignments.size ? existingAssignments : assignmentsFromNumbers(manifestNumbers);
-    winnerSource = existingAssignments.size ? 'existing-explicitly-kept' : 'manifest-explicitly-kept';
-  }
-  if (!args.prizesFile && !args.keepExistingWinners && existingAssignments.size > 0 && args.apply) {
-    throw new Error('A coleção numerosPremiados já possui registros. Informe --prizes-file=... ou use --keep-existing-winners após revisar o backup; para remover o legado, use --clear-legacy-winners.');
-  }
-  if (args.clearLegacyWinners && !args.prizesFile) {
-    assignments = new Map();
-    winnerSource = 'legacy-cleared-no-prizes';
-  }
-  if (!assignments.size && !args.prizesFile && !args.keepExistingWinners && !args.clearLegacyWinners) {
-    assignments = generatePendingAssignments();
-    winnerSource = 'generated-pending-random';
+  let assignments = fileAssignments;
+  let winnerSource = args.prizesFile ? 'explicit-prizes-file' : 'random-generated-pending';
+  if (!assignments.size && existingAssignments.size && !args.clearLegacyWinners) {
+    assignments = existingAssignments;
+    winnerSource = args.keepExistingWinners ? 'existing-explicitly-kept' : 'existing-preserved-after-backup';
+  } else if (!assignments.size && manifestNumbers.size && !args.clearLegacyWinners) {
+    assignments = assignmentsFromNumbers(Array.from(manifestNumbers));
+    winnerSource = 'manifest-preserved';
   }
 
-  const prizePlan = assignments.size
-    ? validatePrizePlan(assignments, args.additionalPrizePoolCents)
-    : { principalCount: 0, additionalPrizeCount: 0, additionalPrizeTotalCents: 0, pendingPrizeCount: 0 };
+  // Completa até 10.000 cotas adicionais com números aleatórios. A XRE não
+  // entra aqui: ela será definida em `sorteios/xre` quando a meta for atingida.
+  if (assignments.size > WINNING_NUMBER_COUNT) {
+    throw new Error(`Foram encontrados ${assignments.size} vencedores; o limite é ${WINNING_NUMBER_COUNT} cotas adicionais.`);
+  }
+  if (assignments.size < WINNING_NUMBER_COUNT) {
+    const excluded = new Set(assignments.keys());
+    const fillers = selectRandomNumbers(excluded, WINNING_NUMBER_COUNT - assignments.size);
+    for (const number of fillers) {
+      assignments.set(number, assignmentsFromNumbers([number]).get(number));
+    }
+    winnerSource = `${winnerSource}-completed-to-10000`;
+  }
+
   const shards = groupShards(available);
   const plan = {
     totalNumbers: TOTAL_NUMBERS,
@@ -386,13 +378,12 @@ async function main() {
     shards: shards.length,
     winnerSource,
     additionalPrizePoolCents: args.additionalPrizePoolCents,
-    principalCount: prizePlan.principalCount,
-    additionalPrizeCount: prizePlan.additionalPrizeCount,
-    additionalPrizeTotalCents: prizePlan.additionalPrizeTotalCents,
-    pendingPrizeCount: prizePlan.pendingPrizeCount || 0,
+    principalCount: args.prizesFile ? prizePlan.principalCount : 0,
+    additionalPrizeCount: args.prizesFile ? prizePlan.additionalPrizeCount : assignments.size,
+    additionalPrizeTotalCents: args.prizesFile ? prizePlan.additionalPrizeTotalCents : 0,
     apply: args.apply,
     ticketWriteMode: args.materializeTickets ? 'all-150000-documents' : 'sold-and-reserved-on-demand',
-    warning: 'São gerados 10.000 números vencedores aleatórios, mas o plano de prêmios pode permanecer pendente. Revise backup, regras, quotas e regulamento antes de aplicar.',
+    warning: 'A lista contém exatamente 10.000 cotas adicionais aleatórias; os prêmios podem ser definidos depois. A XRE permanece fora da lista e só pode ser sorteada aos 100%. Revise backup, regras, cotas e regulamento antes de aplicar.',
   };
 
   console.log(JSON.stringify(plan, null, 2));

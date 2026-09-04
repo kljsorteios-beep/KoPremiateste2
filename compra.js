@@ -83,13 +83,10 @@ function hideMessage() {
 function updateProgress(data) {
   const target = Number(data.targetSoldNumbers || data.totalNumbers || 0);
   const sold = Number(data.soldNumbers || 0);
-  const reserved = Number(data.reservedNumbers || 0);
   const percentage = Math.min(100, Number(data.percentSold ?? (target ? (sold / target) * 100 : 0)));
   const fill = document.querySelector('.progress-fill');
   if (fill) fill.style.width = `${percentage}%`;
   setText('progress-text', `${percentage.toFixed(0)}% Vendido`);
-  setText('progress-count', `${sold.toLocaleString('pt-BR')} de ${target.toLocaleString('pt-BR')} números vendidos`);
-  setText('reserved-count', `${reserved.toLocaleString('pt-BR')} reservados`);
 
   const closed = data.status === 'encerrada' || sold >= target;
   const participateButton = document.querySelector('.btn-participar');

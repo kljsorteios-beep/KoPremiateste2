@@ -1,47 +1,49 @@
-# Auditoria técnica da versão atualizada
+# Auditoria técnica — Kóòpremios Firebase
 
 ## Controles verificados
 
-| Controle | Verificação |
+| Controle | Resultado |
 |---|---|
-| Quantidade total | O projeto mantém 150.000 números como total e o painel rejeita uma meta superior a esse limite. |
-| Modelo de prêmios | O texto e a configuração distinguem 150.000 números de 10.000 cotas vencedoras aleatórias. Os nomes e valores dos prêmios podem permanecer pendentes e privados. |
-| Prêmio principal e adicionais | O backend suporta `premioTipo`, `premioNome`, `premioId` e `premioValorCents` na coleção `numerosPremiados`, permitindo separar o prêmio principal dos adicionais. |
-| Distribuição | Os números são distribuídos em shards e escolhidos aleatoriamente no backend. O navegador não lê o pool de disponibilidade. |
+| Quantidade total | O projeto mantém 150.000 números e o painel rejeita meta superior a esse limite. |
+| Cotas adicionais premiadas | O gerador e a expansão trabalham com exatamente 10.000 cotas adicionais, marcadas como `isWinningNumber: true`. |
+| Prêmio principal | A XRE fica fora da coleção das 10.000 cotas e possui sorteio separado em `sorteios/xre`. |
+| Distribuição | Os números são distribuídos em shards e escolhidos aleatoriamente no backend com `crypto.randomInt`. |
 | Duplicidade | A retirada do pool ocorre em transação Firestore; reservas concorrentes não devem retirar o mesmo número. |
 | Reserva | O pedido recebe expiração de 10 minutos; a rotina agendada libera pedidos em `criando_pagamento` ou `aguardando_pagamento`. |
-| Pix | O backend cria pedido PagBank com `reference_id`, valor em centavos, QR Code e expiração. |
-| Webhook | O endpoint verifica o header `x-authenticity-token` e confirma somente cobranças `PAID`. |
+| Pagamento | A versão final usa Mercado Pago Pix em `/v1/payments`, `external_reference`, QR Code e webhook `mercadoPagoWebhook`. |
+| Webhook | O endpoint Mercado Pago verifica `x-signature`/`x-request-id`, consulta o pagamento oficial e confirma somente `approved`. |
 | Valor recebido | O webhook compara valor e moeda do pagamento com `totalCents` antes de criar a compra. |
-| Meus Títulos | Somente a confirmação `PAID` cria `compras/{pedidoId}`; o perfil filtra pelo UID autenticado e exibe os números com seis dígitos. |
-| Cotômetro | O contador usa números vendidos confirmados e a meta configurável; reservas aparecem separadamente. |
-| Encerramento | Ao atingir a meta, o backend muda o estado para `encerrada` e rejeita novas reservas. |
-| Painel | A área administrativa continua protegida por autenticação e reconhecimento de administrador. A lista foi renomeada para “Números com prêmio”. |
-| E-mail | Foi adicionado um gatilho após a criação de uma compra paga. Ele envia os números por Resend quando `RESEND_API_KEY` e `EMAIL_FROM` estão configurados; caso contrário, registra `aguardando_configuracao`. |
-| Segredos | Tokens do PagBank e a chave Resend ficam previstos como segredos das Functions e não são inseridos no frontend. |
-| Deploy | A árvore foi corrigida para corresponder ao `firebase.json`: `functions/index.js`, `functions/package.json` e utilitários em `scripts/`. |
+| Histórico de compras | Compras pagas são gravadas em `compras/{pedidoId}` e agora podem ser consultadas pelo administrador via `getAdminPurchases`. |
+| Ganhadores adicionais | Quando uma compra paga contém uma das 10.000 cotas, o comprador é copiado para `ganhadores/adicional_XXXXXX` e o número premiado é atualizado. |
+| Sorteio da XRE | `drawXreWinner` exige administrador, estado `encerrada`, meta atingida e usa uma trava em `sorteios/xre`; o resultado também é gravado em `ganhadores/xre`. |
+| Cotômetro | O contador usa números vendidos confirmados e a meta configurável, exibindo somente o percentual no frontend. |
+| Autenticação | Login, cadastro, perfil e recuperação de senha carregam visualmente na Vercel; a autenticação real requer teste com conta autorizada. |
+| Segurança | O Firestore bloqueia leitura direta de cotas, disponibilidade, números premiados, ganhadores, sorteios, configuração e estado. |
+| Administração | O painel possui histórico de compras, ganhadores, auditoria das cotas e roleta visual; a escolha real é feita no backend. |
+| E-mail | O gatilho de e-mail existente depende de `RESEND_API_KEY` e `EMAIL_FROM`; a configuração real ainda não foi comprovada. |
 
-## Testes locais realizados
+## Testes locais
 
-A URL pública `https://ko-premiateste2.vercel.app/` carregou a página inicial, a galeria, o cotômetro inicial e os controles de quantidade. A cópia revisada oculta a linha detalhada e deixa visível somente a porcentagem do cotômetro. O console da página não apresentou mensagens de erro durante o carregamento observado. A versão publicada consultada ainda era a anterior à alteração do texto, pois o deploy da cópia modificada não foi executado.
+Foram aprovados `node --check` para `functions/index.js`, `scripts/generate-raffle.js`, `scripts/expand-firestore.js` e para o JavaScript embutido do painel. O lint declarado das Functions passou. A geração local produziu 150.000 números de distribuição e 10.000 vencedores adicionais únicos.
 
-Na cópia revisada, o gerador cria 150.000 números e 10.000 vencedores aleatórios por padrão. A expansão grava esses vencedores com `isWinningNumber: true` e `premioStatus: "pendente"`, permitindo atribuir a XRE e os demais prêmios depois sem publicar o mapa.
+## Verificações públicas
 
-## Limitações e ações pendentes
+Em 04/09/2026, a página inicial, o login e o cadastro carregaram na Vercel. A versão publicada anterior respondeu HTTP 200 anônimo para `numerosPremiados` e retornou HTTP 404 nas Functions esperadas, incluindo o antigo endpoint PagBank. Isso é evidência histórica da necessidade de publicar a cópia final, não uma validação da configuração atual.
 
-A confirmação do PagBank ainda não foi testada contra uma cobrança real ou sandbox porque as credenciais da conta do responsável não estão disponíveis nesta sessão. A publicação do Firestore e das Functions não foi executada. O envio real de e-mail depende de uma conta de provedor, domínio verificado, chave secreta e remetente configurado.
+O HTTP 200 anônimo da coleção é um bloqueio de segurança. As regras do pacote precisam ser publicadas no projeto correto; depois, uma leitura anônima de `cotas/1` e `numerosPremiados/000001` deve retornar `permission-denied`. O HTTP 404 das Functions indica que o backend esperado não está implantado nessa URL/região/projeto ou usa nomes diferentes.
 
-O banco atualmente mostrado na captura contém uma coleção `numerosPremiados` com registros legados. Isso não deve ser apagado ou reinterpretado automaticamente. Faça backup, confira o regulamento e escolha explicitamente entre carregar um novo arquivo de prêmios, manter os registros legados para revisão ou removê-los com `--clear-legacy-winners`.
+## Faturamento
 
-A conta de faturamento do Google Cloud não foi criada nem vinculada nesta revisão. Essa operação exige acesso autenticado à conta do responsável e pode gerar cobrança conforme o uso; configure orçamento e alertas antes de publicar serviços pagos.
+A captura apresentada mostra pagamento pendente de pelo menos R$ 200, cartão expirado e informações fiscais incompletas. Não é possível afirmar que apenas o pagamento resolve a situação. É necessário corrigir os três alertas, confirmar o processamento e reabrir a Cloud Billing account. O Google Cloud informa que problemas de pagamentos ou suspensões precisam ser resolvidos antes da reabertura [1] [2].
 
-## Decisão de segurança
+## Ações obrigatórias antes de abrir vendas
 
-A campanha deve permanecer em `preparacao` até que o responsável revise os 10.000 números vencedores, defina a atribuição da XRE e a divisão dos prêmios adicionais, revise o regulamento, publique as Functions, valide o webhook em sandbox e confirme a entrega do e-mail. Não foi feita nenhuma alteração destrutiva no banco de produção.
+Faça backup do Firestore; corrija faturamento; publique `firestore.rules`; publique as Functions na região declarada pelo frontend; configure os secrets Mercado Pago e Resend; confirme o claim `admin` ou `ADMIN_UIDS`; teste login, cadastro e perfil; faça uma compra de teste; valide QR Code, webhook, `compras`, cotas e `ganhadores`; e só então configure o domínio e abra vendas.
 
+Não execute o sorteio da XRE em teste de produção. A Function somente deve permitir a operação quando a campanha estiver encerrada e 100% da meta estiver confirmada. A regularidade jurídica e regulatória da campanha deve continuar sendo mantida pelo responsável e seus profissionais.
 
-## Achado crítico no ambiente publicado — 25/08/2026
+## Referências
 
-Embora o arquivo `firestore.rules` desta versão bloqueie `cotas` e `numerosPremiados`, o teste anônimo pelo SDK Web contra o projeto publicado `kopremia-128fe` conseguiu ler `cotas/1` e `numerosPremiados/000001`. Portanto, as regras do pacote ainda precisam ser publicadas no projeto correto e verificadas novamente. A campanha deve permanecer fechada até que uma leitura anônima retorne `permission-denied` para essas duas coleções.
+[1] [Google Cloud — Fechar ou reabrir uma conta de faturamento](https://docs.cloud.google.com/billing/docs/how-to/close-or-reopen-billing-account).
 
-As Cloud Functions `getPublicRaffleState` e `pagbankWebhook` também retornaram HTTP 404 nas URLs esperadas da região `southamerica-east1`, indicando que o backend esperado não está implantado nessa região/projeto ou que o deploy usa outro nome/região. O Firestore público respondeu com `totalNumbers: 150000`, `targetSoldNumbers: 150000` e `status: preparacao`, mas isso não comprova que o fluxo Pix esteja operacional.
+[2] [Google Cloud — Fazer pagamento manual ou antecipado](https://docs.cloud.google.com/billing/docs/how-to/manual-payment).

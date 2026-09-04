@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -6,40 +6,32 @@
   <title>Painel administrativo | Kóòpremios</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
   <style>
-    :root { --gold:#d4af37; --gold-light:#fced9e; --bg:#081021; --surface:#0f172a; --muted:#a8a8b3; --error:#ff8b8b; }
-    * { box-sizing: border-box; font-family: Poppins, sans-serif; }
+    :root { --gold:#d4af37; --gold-light:#fced9e; --bg:#081021; --surface:#0f172a; --muted:#a8a8b3; --error:#ff8b8b; --success:#7ee2a8; }
+    * { box-sizing:border-box; font-family:Poppins,sans-serif; }
     body { margin:0; min-height:100vh; background:var(--bg); color:#e1e1e6; }
-    main { width:min(100% - 32px, 1000px); margin:32px auto; }
+    main { width:min(100% - 32px, 1200px); margin:32px auto; }
     .card { background:var(--surface); border:1px solid rgba(212,175,55,.24); border-radius:14px; padding:24px; margin-bottom:20px; box-shadow:0 12px 34px rgba(0,0,0,.35); }
-    h1,h2 { margin-top:0; color:var(--gold-light); }
-    h1 { font-size:1.7rem; }
-    h2 { font-size:1.1rem; border-bottom:1px solid rgba(212,175,55,.2); padding-bottom:10px; }
-    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
-    label { display:block; color:var(--muted); font-size:.8rem; margin-bottom:5px; }
-    input,select,button { width:100%; padding:11px 12px; border-radius:8px; border:1px solid rgba(212,175,55,.3); }
-    input,select { background:var(--bg); color:#e1e1e6; }
-    button { background:linear-gradient(135deg,#8a631c,#d4af37,#fced9e); color:#000; font-weight:800; cursor:pointer; }
-    button.secondary { background:transparent; color:var(--gold-light); }
-    button:disabled { opacity:.6; cursor:wait; }
-    .actions { display:flex; gap:10px; margin-top:16px; }
-    .actions button { flex:1; }
-    .message { padding:11px 12px; border-radius:8px; background:rgba(212,175,55,.1); color:var(--gold-light); margin-bottom:14px; }
-    .message.error { background:rgba(255,107,107,.1); color:var(--error); }
-    .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
-    .stat { padding:13px; border-radius:9px; background:rgba(255,255,255,.03); }
-    .stat small { display:block; color:var(--muted); font-size:.75rem; }
-    .stat strong { display:block; margin-top:4px; font-size:1.15rem; color:var(--gold-light); }
-    .numbers { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; margin-top:14px; }
-    .number { padding:8px; text-align:center; border:1px solid rgba(212,175,55,.23); border-radius:7px; color:var(--gold-light); font-weight:700; }
-    @media(max-width:700px) { .grid,.stats { grid-template-columns:1fr 1fr; } }
-    @media(max-width:460px) { .grid,.stats { grid-template-columns:1fr; } .actions { flex-direction:column; } }
+    h1,h2 { margin-top:0; color:var(--gold-light); } h1 { font-size:1.7rem; } h2 { font-size:1.1rem; border-bottom:1px solid rgba(212,175,55,.2); padding-bottom:10px; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; } label { display:block; color:var(--muted); font-size:.8rem; margin-bottom:5px; }
+    input,select,button { width:100%; padding:11px 12px; border-radius:8px; border:1px solid rgba(212,175,55,.3); } input,select { background:var(--bg); color:#e1e1e6; }
+    button { background:linear-gradient(135deg,#8a631c,#d4af37,#fced9e); color:#000; font-weight:800; cursor:pointer; } button.secondary { background:transparent; color:var(--gold-light); } button.danger { background:#6f2525; color:#fff; } button:disabled { opacity:.6; cursor:not-allowed; }
+    .actions { display:flex; gap:10px; margin-top:16px; } .actions button { flex:1; }
+    .message { padding:11px 12px; border-radius:8px; background:rgba(212,175,55,.1); color:var(--gold-light); margin-bottom:14px; } .message.error { background:rgba(255,107,107,.1); color:var(--error); } .message.success { background:rgba(52,211,153,.1); color:var(--success); }
+    .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; } .stat { padding:13px; border-radius:9px; background:rgba(255,255,255,.03); } .stat small { display:block; color:var(--muted); font-size:.75rem; } .stat strong { display:block; margin-top:4px; font-size:1.15rem; color:var(--gold-light); }
+    .table-wrap { overflow:auto; margin-top:14px; } table { width:100%; border-collapse:collapse; min-width:720px; } th,td { padding:10px 8px; text-align:left; border-bottom:1px solid rgba(255,255,255,.08); font-size:.8rem; vertical-align:top; } th { color:var(--gold-light); } td { color:#ddd; } .muted { color:var(--muted); }
+    .numbers { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; margin-top:14px; } .number { padding:8px; text-align:center; border:1px solid rgba(212,175,55,.23); border-radius:7px; color:var(--gold-light); font-weight:700; }
+    .warning { color:#ffd27a; font-size:.85rem; line-height:1.6; }
+    .roulette { width:150px; height:150px; margin:18px auto; border-radius:50%; border:8px solid var(--gold); background:conic-gradient(#7b551a 0deg 45deg,#fced9e 45deg 90deg,#9a6d1f 90deg 135deg,#fced9e 135deg 180deg,#7b551a 180deg 225deg,#fced9e 225deg 270deg,#9a6d1f 270deg 315deg,#fced9e 315deg 360deg); display:grid; place-items:center; color:#081021; font-weight:900; box-shadow:0 0 0 6px rgba(212,175,55,.16),0 8px 24px rgba(0,0,0,.35); }
+    .roulette::after { content:'XRE'; width:56px; height:56px; border-radius:50%; display:grid; place-items:center; background:#fff4bd; border:3px solid #8a631c; }
+    .roulette.spinning { animation:roulette-spin 1.6s cubic-bezier(.2,.8,.2,1); } @keyframes roulette-spin { from { transform:rotate(0deg); } to { transform:rotate(1440deg); } }
+    @media(max-width:700px) { .grid,.stats { grid-template-columns:1fr 1fr; } } @media(max-width:460px) { .grid,.stats { grid-template-columns:1fr; } .actions { flex-direction:column; } }
   </style>
 </head>
 <body>
   <main>
     <div class="card">
       <h1>Painel administrativo</h1>
-      <p style="color:var(--muted);">Área restrita. A autorização é conferida no backend por UID/claim de administrador.</p>
+      <p class="muted">Área restrita. A autorização é conferida no backend por UID/claim de administrador.</p>
       <div id="message" class="message" hidden></div>
       <div class="stats">
         <div class="stat"><small>Vendidos</small><strong id="sold">0</strong></div>
@@ -59,9 +51,33 @@
     </div>
 
     <div class="card">
-      <h2>Números com prêmio</h2>
-      <p style="color:var(--muted);">A lista contém os 10.000 números vencedores escolhidos aleatoriamente. Os prêmios podem permanecer pendentes até a decisão do administrador. O conteúdo não é consultável pelo frontend público e só aparece para um administrador reconhecido pelo backend.</p>
-      <div class="actions"><button id="loadWinners">Carregar números</button><button id="loadMore" class="secondary" hidden>Carregar mais</button></div>
+      <h2>Compras confirmadas</h2>
+      <p class="muted">Histórico dos pedidos registrados após confirmação do pagamento. Os dados são carregados somente pelo backend para o administrador.</p>
+      <div class="actions"><button id="loadPurchases">Carregar compras</button></div>
+      <div id="purchasesStatus" class="muted"></div>
+      <div class="table-wrap"><table id="purchasesTable" hidden><thead><tr><th>Data</th><th>Comprador</th><th>E-mail</th><th>Números</th><th>Total</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>Ganhadores de cotas adicionais</h2>
+      <p class="muted">Aqui aparecem separadamente os compradores de uma das 10.000 cotas adicionais premiadas. A XRE possui um registro próprio abaixo.</p>
+      <div class="actions"><button id="loadWinners">Carregar ganhadores</button></div>
+      <div id="winnersStatus" class="muted"></div>
+      <div class="table-wrap"><table id="winnersTable" hidden><thead><tr><th>Cota</th><th>Prêmio</th><th>Comprador</th><th>E-mail</th><th>Pedido</th><th>Data</th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>Sorteio da XRE</h2>
+      <p id="drawHelp" class="warning">O botão será habilitado somente quando todos os números da meta estiverem vendidos e o estado da campanha for “encerrada”. O backend impede sorteios antecipados e grava o resultado em `sorteios/xre` e `ganhadores/xre`.</p>
+      <div id="roulette" class="roulette" aria-label="Roleta visual do sorteio da XRE"></div>
+      <div class="actions"><button id="drawXre" class="danger" disabled>Sortear XRE</button></div>
+      <div id="xreResult" class="muted"></div>
+    </div>
+
+    <div class="card">
+      <h2>Auditoria das 10.000 cotas</h2>
+      <div class="actions"><button id="loadWinningNumbers" class="secondary">Carregar números reservados para prêmios</button></div>
+      <div id="numbersStatus" class="muted"></div>
       <div id="numbers" class="numbers"></div>
     </div>
   </main>
@@ -72,83 +88,106 @@
     const getPublicRaffleState = httpsCallable(functions, 'getPublicRaffleState');
     const updateRaffleConfig = httpsCallable(functions, 'updateRaffleConfig');
     const getWinningNumbers = httpsCallable(functions, 'getWinningNumbers');
-    let lastNumber = '';
+    const getAdminPurchases = httpsCallable(functions, 'getAdminPurchases');
+    const getAdminWinners = httpsCallable(functions, 'getAdminWinners');
+    const drawXreWinner = httpsCallable(functions, 'drawXreWinner');
+    let currentState = {};
 
     const message = document.getElementById('message');
-    function showMessage(text, error = false) {
-      message.hidden = false;
-      message.textContent = text;
-      message.classList.toggle('error', error);
-    }
+    function showMessage(text, type = 'info') { message.hidden = false; message.textContent = text; message.className = `message ${type}`; }
+    function formatDate(value) { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.valueOf()) ? date.toLocaleString('pt-BR') : '—'; }
+    function formatMoney(cents) { return (Number(cents || 0) / 100).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
+    function formatNumbers(numbers) { return (numbers || []).map((number) => String(number).padStart(6, '0')).join(', '); }
+    function clearTable(id) { const table = document.getElementById(id); table.hidden = false; table.querySelector('tbody').replaceChildren(); return table.querySelector('tbody'); }
+    function cell(value) { const element = document.createElement('td'); element.textContent = value ?? '—'; return element; }
 
     async function loadState() {
       const result = await getPublicRaffleState();
-      const data = result.data || {};
-      document.getElementById('sold').textContent = Number(data.soldNumbers || 0).toLocaleString('pt-BR');
-      document.getElementById('reserved').textContent = Number(data.reservedNumbers || 0).toLocaleString('pt-BR');
-      document.getElementById('target').textContent = Number(data.targetSoldNumbers || 0).toLocaleString('pt-BR');
-      document.getElementById('status').textContent = data.status || '—';
-      document.getElementById('targetInput').value = data.targetSoldNumbers || 150000;
-      document.getElementById('statusInput').value = data.status || 'preparacao';
+      currentState = result.data || {};
+      const sold = Number(currentState.soldNumbers || 0);
+      const target = Number(currentState.targetSoldNumbers || 0);
+      document.getElementById('sold').textContent = sold.toLocaleString('pt-BR');
+      document.getElementById('reserved').textContent = Number(currentState.reservedNumbers || 0).toLocaleString('pt-BR');
+      document.getElementById('target').textContent = target.toLocaleString('pt-BR');
+      document.getElementById('status').textContent = currentState.status || '—';
+      document.getElementById('targetInput').value = target || 150000;
+      document.getElementById('statusInput').value = currentState.status || 'preparacao';
+      const eligible = sold >= target && currentState.status === 'encerrada';
+      document.getElementById('drawXre').disabled = !eligible;
+      document.getElementById('drawHelp').textContent = eligible
+        ? 'A campanha atingiu 100%. O sorteio pode ser executado uma única vez; o resultado ficará registrado para auditoria.'
+        : `Ainda bloqueado: ${sold.toLocaleString('pt-BR')} de ${target.toLocaleString('pt-BR')} vendidos e status “${currentState.status || '—'}”.`;
     }
 
     async function saveConfig() {
-      const button = document.getElementById('saveConfig');
-      button.disabled = true;
-      try {
-        await updateRaffleConfig({
-          targetSoldNumbers: Number(document.getElementById('targetInput').value),
-          status: document.getElementById('statusInput').value,
-        });
-        await loadState();
-        showMessage('Configuração salva.');
-      } catch (error) {
-        console.error(error);
-        showMessage(error.message || 'Não foi possível salvar.', true);
-      } finally {
-        button.disabled = false;
-      }
+      const button = document.getElementById('saveConfig'); button.disabled = true;
+      try { await updateRaffleConfig({ targetSoldNumbers: Number(document.getElementById('targetInput').value), status: document.getElementById('statusInput').value }); await loadState(); showMessage('Configuração salva.', 'success'); }
+      catch (error) { console.error(error); showMessage(error.message || 'Não foi possível salvar.', 'error'); }
+      finally { button.disabled = false; }
     }
 
-    async function loadWinners(clear = true) {
-      const button = document.getElementById('loadWinners');
-      button.disabled = true;
+    async function loadPurchases() {
+      const button = document.getElementById('loadPurchases'); button.disabled = true;
       try {
-        const result = await getWinningNumbers({ pageSize: 200, startAfter: clear ? '' : lastNumber });
-        const data = result.data || {};
-        const container = document.getElementById('numbers');
-        if (clear) container.replaceChildren();
-        for (const number of data.numbers || []) {
-          const item = document.createElement('div');
-          item.className = 'number';
-          item.textContent = String(number).padStart(6, '0');
-          container.appendChild(item);
+        const result = await getAdminPurchases({ pageSize: 200 });
+        const rows = clearTable('purchasesTable');
+        for (const purchase of result.data?.purchases || []) {
+          const row = document.createElement('tr');
+          row.append(cell(formatDate(purchase.paidAt || purchase.criadoEm)), cell(purchase.nome), cell(purchase.email), cell(formatNumbers(purchase.numeros)), cell(formatMoney(purchase.totalCents)), cell(purchase.status)); rows.appendChild(row);
         }
-        lastNumber = data.nextStartAfter || '';
-        document.getElementById('loadMore').hidden = !data.hasMore;
-        showMessage(`${container.children.length.toLocaleString('pt-BR')} números carregados.`);
-      } catch (error) {
-        console.error(error);
-        showMessage(error.message || 'Não foi possível carregar a lista.', true);
-      } finally {
-        button.disabled = false;
-      }
+        document.getElementById('purchasesStatus').textContent = `${rows.children.length.toLocaleString('pt-BR')} compras carregadas.`;
+      } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível carregar as compras.', 'error'); }
+      finally { button.disabled = false; }
+    }
+
+    async function loadWinners() {
+      const button = document.getElementById('loadWinners'); button.disabled = true;
+      try {
+        const result = await getAdminWinners({ pageSize: 200 });
+        const rows = clearTable('winnersTable');
+        for (const winner of result.data?.winners || []) {
+          const row = document.createElement('tr');
+          row.append(cell(String(winner.numero).padStart(6, '0')), cell(winner.premioNome || 'Prêmio a definir'), cell(winner.comprador), cell(winner.email), cell(winner.pedidoId), cell(formatDate(winner.confirmadoEm || winner.sorteadoEm))); rows.appendChild(row);
+        }
+        document.getElementById('winnersStatus').textContent = `${rows.children.length.toLocaleString('pt-BR')} ganhadores carregados.`;
+      } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível carregar os ganhadores.', 'error'); }
+      finally { button.disabled = false; }
+    }
+
+    async function loadWinningNumbers() {
+      const button = document.getElementById('loadWinningNumbers'); button.disabled = true;
+      try {
+        const result = await getWinningNumbers({ pageSize: 500 });
+        const container = document.getElementById('numbers'); container.replaceChildren();
+        for (const number of result.data?.numbers || []) { const item = document.createElement('div'); item.className = 'number'; item.textContent = String(number).padStart(6, '0'); container.appendChild(item); }
+        document.getElementById('numbersStatus').textContent = `${container.children.length.toLocaleString('pt-BR')} números exibidos nesta página.`;
+      } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível carregar os números.', 'error'); }
+      finally { button.disabled = false; }
+    }
+
+    async function drawXre() {
+      if (!window.confirm('Confirmar o sorteio da XRE? Esta operação será registrada e não deve ser repetida.')) return;
+      const button = document.getElementById('drawXre'); button.disabled = true;
+      const roulette = document.getElementById('roulette'); roulette.classList.add('spinning');
+      try {
+        const result = await drawXreWinner({});
+        const winner = result.data?.winner || {};
+        document.getElementById('xreResult').textContent = `XRE: cota ${String(winner.numero || '').padStart(6, '0')} — ${winner.comprador || 'comprador não informado'} — ${winner.email || 'sem e-mail'}.`;
+        showMessage('Sorteio da XRE concluído e registrado.', 'success');
+        await loadWinners();
+      } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível realizar o sorteio.', 'error'); await loadState(); }
+      finally { roulette.classList.remove('spinning'); button.disabled = true; }
     }
 
     document.getElementById('saveConfig').addEventListener('click', saveConfig);
-    document.getElementById('loadWinners').addEventListener('click', () => loadWinners(true));
-    document.getElementById('loadMore').addEventListener('click', () => loadWinners(false));
+    document.getElementById('loadPurchases').addEventListener('click', loadPurchases);
+    document.getElementById('loadWinners').addEventListener('click', loadWinners);
+    document.getElementById('loadWinningNumbers').addEventListener('click', loadWinningNumbers);
+    document.getElementById('drawXre').addEventListener('click', drawXre);
 
     onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = 'login.html?returnTo=admin.html';
-        return;
-      }
-      try {
-        await loadState();
-      } catch (error) {
-        showMessage('Usuário autenticado, mas sem permissão administrativa.', true);
-      }
+      if (!user) { window.location.href = 'login.html?returnTo=admin.html'; return; }
+      try { await loadState(); } catch (error) { console.error(error); showMessage('Usuário autenticado, mas sem permissão administrativa ou Functions publicadas.', 'error'); }
     });
   </script>
 </body>

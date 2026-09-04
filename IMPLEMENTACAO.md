@@ -4,9 +4,9 @@
 
 O projeto separa o frontend público da lógica crítica. O navegador não escolhe números, não altera status de cotas, não confirma pagamentos e não recebe a lista de números com prêmio. Ele solicita uma reserva e exibe o QR Code Pix retornado pelo backend.
 
-A campanha possui **150.000 números** e reserva **10.000 números vencedores escolhidos aleatoriamente**. O modelo de premiação é `premio_principal_mais_premios_adicionais`: um prêmio principal, atualmente descrito como Honda XRE 190 2026, e prêmios adicionais cujo fundo total configurado é de **R$ 10.000,00**. Os números vencedores são definidos desde a geração, mas os nomes e valores dos prêmios podem permanecer pendentes e privados até a decisão do administrador.
+A campanha possui **150.000 números** e exatamente **10.000 cotas adicionais premiadas**. A Honda XRE 190 2026 é o prêmio principal e fica fora da coleção das 10.000; ela é sorteada em etapa separada quando a campanha atingir 100%. O fundo adicional de **R$ 10.000,00** é distribuído entre as 10.000 cotas conforme o plano de prêmios definido pelo administrador.
 
-A reserva usa transações atômicas e shards de disponibilidade no Firestore. O pedido fica com status `aguardando_pagamento` por 10 minutos. Quando o PagBank envia um webhook autenticado indicando `PAID`, o backend valida o pedido, o valor e a moeda, converte a reserva em compra definitiva, grava `compras/{pedidoId}`, atualiza os documentos de `cotas` e incrementa o cotômetro. Uma rotina agendada libera pedidos expirados.
+A reserva usa transações atômicas e shards de disponibilidade no Firestore. O pedido fica com status `aguardando_pagamento` por 10 minutos. Quando o Mercado Pago envia um webhook autenticado, o backend consulta `/v1/payments/{id}`, valida `status: "approved"`, referência externa, valor e moeda, converte a reserva em compra definitiva, grava `compras/{pedidoId}`, atualiza os documentos de `cotas` e incrementa o cotômetro. Uma rotina agendada libera pedidos expirados.
 
 > **Importante:** nenhuma cobrança real, nenhum número premiado e nenhuma escrita no Firebase de produção foram executados durante esta revisão.
 
@@ -16,11 +16,11 @@ A reserva usa transações atômicas e shards de disponibilidade no Firestore. O
 |---|---|
 | `firebase-client.js` | Configuração comum do Firebase Auth, Firestore e Functions no frontend. |
 | `compra.js` | Cotômetro, menu autenticado, reserva, QR Code Pix, copia e cola e contador de 10 minutos. |
-| `functions/index.js` | Reserva atômica, PagBank, webhook, expiração, estado público, painel administrativo e gatilho de e-mail. |
+| `functions/index.js` | Reserva atômica, Mercado Pago Pix, webhook autenticado, expiração, estado público, painel administrativo e gatilho de e-mail. |
 | `functions/package.json` | Dependências e scripts das Cloud Functions. |
-| `scripts/generate-raffle.js` | Geração dos 150.000 números, dos 10.000 vencedores aleatórios, hashes e publicação opcional. |
-| `scripts/expand-firestore.js` | Normalização do Firestore e carga do mapa explícito de prêmios. |
-| `admin.html` | Configuração da meta/status e consulta protegida dos números com prêmio. |
+| `scripts/generate-raffle.js` | Geração dos 150.000 números e exatamente 10.000 vencedores adicionais, hashes e publicação opcional. A XRE fica fora da lista. |
+| `scripts/expand-firestore.js` | Normalização do Firestore, preservação/complementação até 10.000 vencedores adicionais e carga opcional do catálogo de prêmios. |
+| `admin.html` | Configuração da meta/status, compras, ganhadores, auditoria das cotas e sorteio controlado da XRE. |
 | `firestore.rules` | Bloqueia manipulação direta de cotas, disponibilidade, pedidos, compras e prêmios pelo navegador. |
 | `firebase.json` | Hosting, Functions, regras e índices. |
 
@@ -32,9 +32,9 @@ A coleção `disponibilidade` usa documentos `shard_000` até os shards necessá
 
 A coleção `pedidos` guarda a reserva e o estado do pagamento. Os status principais são `criando_pagamento`, `aguardando_pagamento`, `pago`, `expirada`, `cancelado`, `pagamento_tardio` e `pagamento_inconsistente`.
 
-A coleção `compras` contém somente pedidos confirmados e possui `uid`, dados básicos do comprador, `email`, `numeros`, `quantidade`, `totalCents`, `status`, `pagbankOrderId` e `paidAt`. A área Minha Conta consulta os documentos filtrados pelo próprio UID e exibe os números formatados.
+A coleção `compras` contém somente pedidos confirmados e possui `uid`, dados básicos do comprador, `email`, `numeros`, `quantidade`, `totalCents`, `status`, `mercadopagoPaymentId` e `paidAt`. A área Minha Conta consulta os documentos filtrados pelo próprio UID e exibe os números formatados.
 
-A coleção `numerosPremiados` contém os 10.000 números vencedores, inicialmente com `isWinningNumber: true` e `premioStatus: "pendente"`. Cada documento pode receber depois `premioId`, `premioNome`, `premioTipo` e `premioValorCents`. O número e o mapa de prêmios não são lidos pelo frontend público.
+A coleção `numerosPremiados` contém exatamente as 10.000 cotas adicionais, com `isWinningNumber: true` e `prizeCategory: adicional`. Cada documento pode ter `numero`, `numeroFormatado`, `premioId`, `premioNome`, `premioTipo`, `premioValorCents`, `status` e `generationId`. Os nomes e valores podem ficar pendentes até o administrador definir o plano. A XRE não deve ser inserida nessa coleção.
 
 A coleção `auditoria/rifa` guarda o conjunto confidencial de números com prêmio, seus hashes e metadados da geração. A função `getWinningNumbers` só responde a usuários reconhecidos como administradores. A coleção `numerosPremiados` e a auditoria continuam bloqueadas para o navegador público.
 
@@ -42,22 +42,22 @@ A coleção `auditoria/rifa` guarda o conjunto confidencial de números com prê
 
 Obtenha o UID do usuário administrador na tela Authentication do Firebase. O UID pode ser definido pela variável `ADMIN_UIDS` nas Functions ou por custom claim `admin: true`. A página `admin.html` permite alterar `targetSoldNumbers` e o status da campanha. O administrador só deve abrir a venda após revisar o mapa de prêmios, as regras, os segredos e o teste sandbox.
 
-## Configuração do PagBank
+## Configuração do Mercado Pago Pix
 
-O token de API não deve ser colocado no HTML, no frontend ou no GitHub. Configure os segredos nas Cloud Functions:
+O Access Token e a chave secreta do webhook não devem ser colocados no HTML, no frontend ou no GitHub. Configure os segredos nas Cloud Functions:
 
 ```bash
-firebase functions:secrets:set PAGBANK_ACCESS_TOKEN
-firebase functions:secrets:set PAGBANK_WEBHOOK_TOKEN
+firebase functions:secrets:set MERCADOPAGO_ACCESS_TOKEN
+firebase functions:secrets:set MERCADOPAGO_WEBHOOK_SECRET
 ```
 
-Defina `PAGBANK_API_URL` como `https://sandbox.api.pagseguro.com` durante os testes. Em produção, use a URL de produção indicada na conta PagBank. Se não definir `PAGBANK_WEBHOOK_URL`, o backend monta automaticamente:
+Use `MERCADOPAGO_API_URL=https://api.mercadopago.com`. Se não definir `MERCADOPAGO_WEBHOOK_URL`, o backend monta automaticamente:
 
 ```text
-https://southamerica-east1-SEU_PROJECT_ID.cloudfunctions.net/pagbankWebhook
+https://southamerica-east1-SEU_PROJECT_ID.cloudfunctions.net/mercadoPagoWebhook
 ```
 
-O pedido Pix inclui `reference_id`, valor em centavos, data de expiração e `notification_urls`. O webhook valida o header `x-authenticity-token` e só confirma a compra quando encontra uma cobrança `PAID` com valor e moeda compatíveis.
+O backend cria o pagamento em `/v1/payments` com `transaction_amount` em reais, `payment_method_id: "pix"`, `external_reference`, `date_of_expiration` e `notification_url`. A resposta usa `point_of_interaction.transaction_data.qr_code` e, quando fornecido, `qr_code_base64`. O webhook valida `x-signature`/`x-request-id`, consulta o pagamento na API do Mercado Pago e só confirma `approved` com referência, valor e moeda compatíveis.
 
 ## Confirmação automática por e-mail
 
@@ -77,23 +77,23 @@ O status da entrega é salvo em `compras/{pedidoId}.confirmationEmail`. Os estad
 
 ## Arquivo explícito do plano de prêmios
 
-O script `scripts/expand-firestore.js` gera 10.000 vencedores aleatórios quando nenhum mapa é fornecido. Para atribuir a XRE e os demais prêmios, crie depois localmente um arquivo JSON confidencial, por exemplo:
+O script `scripts/expand-firestore.js` garante 10.000 vencedores adicionais aleatórios por padrão. Se alguns prêmios já estiverem definidos, crie localmente um arquivo JSON confidencial para completar o catálogo, por exemplo:
 
 ```json
 [
   {
     "numero": 12345,
-    "premioId": "xre-190-2026",
-    "premioNome": "Honda XRE 190 2026",
-    "premioTipo": "principal",
-    "premioValorCents": 2700000
-  },
-  {
-    "numero": 54321,
     "premioId": "pix-001",
     "premioNome": "Prêmio adicional Pix",
     "premioTipo": "adicional",
     "premioValorCents": 50000
+  },
+  {
+    "numero": 54321,
+    "premioId": "pix-002",
+    "premioNome": "Prêmio adicional Pix",
+    "premioTipo": "adicional",
+    "premioValorCents": 10000
   }
 ]
 ```
@@ -118,18 +118,18 @@ O modo compacto não materializa 150.000 documentos `cotas`; esses documentos s�
 
 ## Geração local dos 150.000 números
 
-O comando abaixo gera os arquivos localmente, sem publicar, com 10.000 vencedores aleatórios e um arquivo confidencial de números premiados:
+O comando abaixo gera os arquivos localmente, sem publicar, com 150.000 números e 10.000 vencedores adicionais:
 
 ```bash
 node scripts/generate-raffle.js --output=generated-raffle
 node scripts/validate-generated.js generated-raffle --expected-winners=10000
 ```
 
-Se o plano aprovado usar outra quantidade, passe `--winners=N`; para esta campanha, o valor esperado é 10.000. Revise sempre o resultado e mantenha os arquivos de vencedores fora do frontend e do GitHub público. O fundo adicional pode ser informado em centavos:
+Se for necessário gerar novamente a lista, mantenha `--winners=10000` e revise o resultado. A XRE continua separada. O fundo adicional pode ser informado em centavos:
 
 ```bash
 node scripts/generate-raffle.js \
-  --winners=QUANTIDADE_REAL \
+  --winners=10000 \
   --prizePoolCents=1000000 \
   --publish \
   --output=generated-raffle
@@ -146,7 +146,7 @@ npm --prefix functions install
 firebase deploy --only firestore:rules,firestore:indexes,functions,hosting
 ```
 
-A publicação das Functions deve ocorrer antes de testar uma cobrança PagBank. A URL exibida no console do Firebase será usada automaticamente pelo próximo pedido, salvo se `PAGBANK_WEBHOOK_URL` estiver definida.
+A publicação das Functions deve ocorrer antes de testar uma cobrança Mercado Pago. A URL exibida no console do Firebase será usada automaticamente pelo próximo pedido, salvo se `MERCADOPAGO_WEBHOOK_URL` estiver definida.
 
 ## Checklist de teste sandbox
 
@@ -162,11 +162,9 @@ A conta do Google Cloud Billing deve ser criada ou vinculada ao projeto `kopremi
 
 ## Referências técnicas
 
-[1]: https://developer.pagbank.com.br/reference/criar-pedido-pedido-com-qr-code-pix-v2 "PagBank — Criar pedido com QR Code Pix"
-
-[2]: https://developer.pagbank.com.br/reference/webhooks "PagBank — Webhooks"
-
-[3]: https://developer.pagbank.com.br/reference/confirmar-autenticidade-da-notificacao "PagBank — Confirmar autenticidade da notificação"
+[1]: https://www.mercadopago.com.br/developers/en/docs/checkout-api/payment-integration "Mercado Pago — Integração de meios de pagamento"
+[2]: https://www.mercadopago.com.br/developers/en/docs/your-integrations/notifications/webhooks "Mercado Pago — Webhooks"
+[3]: https://www.mercadopago.com.br/developers/en/reference/payments/_payments/post "Mercado Pago — Criar pagamento"
 
 [4]: https://firebase.google.com/docs/firestore/manage-data/transactions "Firebase — Transactions and batched writes"
 

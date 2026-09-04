@@ -1,15 +1,15 @@
 # Relatório técnico da revisão da Kóòpremios
 
 **Data:** 25 de agosto de 2026  
-**Escopo:** frontend, Cloud Functions, Firestore, Pix PagBank, notificações, domínio e preparação de faturamento.
+**Escopo:** frontend, Cloud Functions, Firestore, Mercado Pago Pix, notificações, domínio e preparação de faturamento.
 
 > **Nota de responsabilidade:** esta é uma revisão técnica do código e da configuração observada. Não substitui análise jurídica, regulatória, contábil ou financeira sobre a realização da campanha, a publicidade de sorteios, a premiação ou a cobrança de pagamentos. Antes de abrir vendas, peça a validação de um profissional habilitado.
 
 ## Resultado executivo
 
-A cópia revisada mantém **150.000 números** e passa a tratar os **R$ 10.000,00 como fundo total de prêmios adicionais**, separado do prêmio principal. A frase da página foi alterada para “São 10 mil em prêmios, participe e boa sorte!”. O backend deixou de considerar automaticamente que existam 10.000 números vencedores.
+A cópia revisada mantém **150.000 números** e define exatamente **10.000 cotas adicionais premiadas**, separadas do prêmio principal. A frase da página foi ajustada para “São 10 Mil cotas premiadas, participe e boa sorte!”. A Honda XRE 190 2026 fica fora dessas cotas e só pode ser sorteada após 100% das vendas. O fundo de R$ 10.000,00 é distribuído entre as 10.000 cotas adicionais conforme o plano de prêmios.
 
-Também foi preparado o envio automático dos números por e-mail após a confirmação `PAID` do PagBank. O comprador continua podendo consultar os números na área Minha Conta, agora com seis dígitos. A integração de e-mail usa a API do Resend dentro de uma Cloud Function e só será ativada depois de configurar chave, remetente e domínio verificado.
+Também foi preparado o envio automático dos números por e-mail após a confirmação `approved` consultada na API do Mercado Pago. O comprador continua podendo consultar os números na área Minha Conta, agora com seis dígitos. A integração de e-mail usa a API do Resend dentro de uma Cloud Function e só será ativada depois de configurar chave, remetente e domínio verificado.
 
 A campanha **não deve abrir vendas ainda**. O ambiente publicado apresenta dois bloqueios críticos: as Functions esperadas retornam HTTP 404 na região verificada, e um teste anônimo pelo SDK Firebase conseguiu ler `cotas/1` e `numerosPremiados/000001`, apesar de as regras corretas estarem no pacote revisado. As regras precisam ser publicadas no projeto/região corretos e testadas novamente.
 
@@ -17,12 +17,12 @@ A campanha **não deve abrir vendas ainda**. O ambiente publicado apresenta dois
 
 | Arquivo | Alteração |
 |---|---|
-| `index.html` | Corrige a frase para “São 10 mil em prêmios, participe e boa sorte!”. |
+| `index.html` | Usa a frase “São 10 Mil cotas premiadas, participe e boa sorte!” e exibe somente o percentual do cotômetro. |
 | `functions/index.js` | Mantém 150.000 números, adiciona modelo de prêmio principal + adicionais, lê somente prêmios catalogados, prepara e-mail pós-pagamento e reduz a leitura da coleção de prêmios aos números do pedido. |
-| `scripts/generate-raffle.js` | Deixa a quantidade de vencedores em zero por padrão, adiciona fundo adicional e metadados do plano. |
-| `scripts/expand-firestore.js` | Não gera 10.000 vencedores automaticamente; aceita um arquivo explícito de prêmios e exige flags conscientes para manter/remover legado. |
+| `scripts/generate-raffle.js` | Gera 10.000 vencedores adicionais por padrão, preservando a XRE como sorteio separado. |
+| `scripts/expand-firestore.js` | Completa/preserva exatamente 10.000 vencedores adicionais e aceita catálogo confidencial opcional. |
 | `scripts/validate-generated.js` | Valida 150.000 números e quantidade de vencedores configurável. |
-| `admin.html` | Troca a linguagem para “Números com prêmio” e informa que a lista é variável. |
+| `admin.html` | Mostra auditoria das 10.000 cotas, compras, ganhadores adicionais e sorteio protegido da XRE. |
 | `perfil.html` | Exibe títulos comprados no formato de seis dígitos. |
 | `env.example` | Documenta `RESEND_API_KEY` e `EMAIL_FROM`. |
 | `firebase.json` e pastas | Corrige a organização para `functions/` e `scripts/`, conforme a configuração declarada. |
@@ -37,11 +37,11 @@ A campanha **não deve abrir vendas ainda**. O ambiente publicado apresenta dois
 | Preço por número | R$ 0,50 |
 | Prêmio principal | Honda XRE 190 2026, a confirmar no regulamento |
 | Fundo de prêmios adicionais | R$ 10.000,00, equivalente a 1.000.000 centavos |
-| Quantidade de números com prêmio | Variável; não é automaticamente 10.000 |
+| Quantidade de cotas adicionais premiadas | Exatamente 10.000, fora a XRE |
 | Coleção usada para o mapa | `numerosPremiados` |
 | Campos do mapa | `numero`, `premioId`, `premioNome`, `premioTipo`, `premioValorCents` |
 
-A coleção `numerosPremiados` da captura possui registros legados sem identificação de prêmio. Na versão revisada, documentos sem `premioId`, `premioNome` e `premioTipo` não são tratados pelo backend como números premiados. Para uma migração definitiva, faça backup e use um arquivo JSON confidencial com um único item `premioTipo: "principal"` e os demais itens como `premioTipo: "adicional"`. O script soma os prêmios adicionais e rejeita valores acima do fundo configurado.
+A coleção `numerosPremiados` observada na captura possuía registros legados sem identificação de prêmio. Na versão revisada, a expansão garante 10.000 cotas adicionais com `isWinningNumber: true` e `prizeCategory: "adicional"`; a XRE não entra nessa coleção. Faça backup antes de aplicar a normalização e defina posteriormente o catálogo confidencial de valores e nomes dos prêmios.
 
 O arquivo de prêmios não deve ser publicado na Vercel, no GitHub ou no frontend. Os exemplos de documentação são apenas ilustrativos. Nenhuma alteração destrutiva foi executada no Firestore.
 
@@ -49,16 +49,16 @@ O arquivo de prêmios não deve ser publicado na Vercel, no GitHub ou no fronten
 
 | Componente | Resultado observado | Situação |
 |---|---|---|
-| Página inicial pública | Carregou na Vercel; a versão publicada ainda mostrava a frase antiga. | Deploy da cópia revisada pendente. |
+| Página inicial pública | A cópia local final usa a frase solicitada e mantém o backend desacoplado. | Deploy da cópia revisada ainda pendente. |
 | Prévia local | Mostrou a frase nova, galeria, cotômetro, seleção e botão de participação. | Validada localmente. |
-| Cotômetro | Firestore público informa 150.000 como total e meta, mas as Functions esperadas retornaram 404. | Não considerar pronto. |
+| Cotômetro | O frontend usa o estado público da Function e exibe somente o percentual; a disponibilidade em produção depende do deploy correto das Functions. | Validado no código; teste de produção pendente. |
 | Login | Formulário, Mostrar senha e Esqueci minha senha presentes. | Presença validada; autenticação real pendente de conta de teste. |
 | Cadastro | Nome, telefone, CPF, e-mail, senha, nascimento e endereço presentes. | Presença validada; cadastro real pendente de conta de teste. |
 | Minha Conta | Perfil sem sessão redirecionou ao login. | Proteção de rota validada; compra real pendente. |
 | Pix | Código do backend cria pedido, QR Code e webhook, mas os endpoints publicados retornam 404. | Não está comprovado em produção. |
 | E-mail | Gatilho pós-compra e chamada Resend preparados no backend. | Depende de chave, remetente e domínio verificado. |
 | Firestore | `publico/rifa` tem 150.000 números e status `preparacao`. | Os dados públicos estão em preparação. |
-| Segurança Firestore | Leitura anônima pelo SDK conseguiu acessar `cotas/1` e `numerosPremiados/000001`. | Bloqueio crítico; publicar regras e repetir teste. |
+| Segurança Firestore | As regras da cópia final bloqueiam leitura e escrita anônimas de `cotas`, `disponibilidade`, `numerosPremiados`, `ganhadores` e `sorteios`. | Publicar no projeto correto e repetir teste anônimo; a observação de leitura aberta é histórica da versão publicada anterior. |
 
 ## Opções para o e-mail transacional
 
@@ -87,13 +87,13 @@ No Google Cloud, crie ou vincule uma **Cloud Billing account** ao projeto por um
 
 Na Vercel, adicione o domínio comprado e configure exatamente os registros DNS exibidos no painel. Depois, autorize o domínio final em **Firebase Authentication > Settings > Authorized domains**. Se o domínio for usado para e-mail, verifique-o também no Resend.
 
-No PagBank, configure primeiro o ambiente sandbox, os segredos `PAGBANK_ACCESS_TOKEN` e `PAGBANK_WEBHOOK_TOKEN`, e confirme a URL pública do webhook. No Resend, configure `RESEND_API_KEY` como segredo da Function e `EMAIL_FROM` como remetente do domínio verificado. A API de envio exige `from`, `to` e `subject`, e usa autenticação Bearer [2].
+No Mercado Pago, configure primeiro as credenciais de teste, os segredos `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET`, e confirme a URL pública `mercadoPagoWebhook`. No Resend, configure `RESEND_API_KEY` como segredo da Function e `EMAIL_FROM` como remetente do domínio verificado. A API de envio exige `from`, `to` e `subject`, e usa autenticação Bearer [2].
 
-Por último, faça uma compra sandbox pequena: cadastro, login, reserva, QR Code, pagamento, webhook `PAID`, criação de `compras`, números na Minha Conta, e-mail recebido, expiração de reserva, concorrência e rejeição de assinatura/valor incorretos. Só depois de todos esses testes o administrador deve abrir a campanha.
+Por último, faça uma compra de teste pequena: cadastro, login, reserva, QR Code Mercado Pago, pagamento, webhook `approved`, criação de `compras`, números na Minha Conta, e-mail recebido, expiração de reserva, concorrência e rejeição de assinatura/valor incorretos. Só depois de todos esses testes o administrador deve abrir a campanha.
 
 ## Referências
 
-[1]: https://developer.pagbank.com.br/reference/webhooks "PagBank — Webhooks"
+[1]: https://www.mercadopago.com.br/developers/en/docs/your-integrations/notifications/webhooks "Mercado Pago — Webhooks"
 
 [2]: https://resend.com/docs/api-reference/emails/send-email "Resend — Send Email API"
 

@@ -14,14 +14,13 @@ const logger = require('firebase-functions/logger');
 initializeApp();
 const db = getFirestore();
 
-const PAGBANK_ACCESS_TOKEN = defineSecret('PAGBANK_ACCESS_TOKEN');
-const PAGBANK_WEBHOOK_TOKEN = defineSecret('PAGBANK_WEBHOOK_TOKEN');
+const MERCADOPAGO_ACCESS_TOKEN = defineSecret('MERCADOPAGO_ACCESS_TOKEN');
+const MERCADOPAGO_WEBHOOK_SECRET = defineSecret('MERCADOPAGO_WEBHOOK_SECRET');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
 const TOTAL_NUMBERS_DEFAULT = 150000;
-// A campanha reserva 10.000 números vencedores aleatórios.
-// Os nomes e valores dos prêmios são cadastrados separadamente e permanecem
-// privados até a divulgação autorizada pelo administrador.
+// São exatamente 10.000 cotas de prêmios adicionais. A XRE fica fora
+// desta coleção e só pode ser sorteada quando o cotômetro atingir 100%.
 const WINNING_NUMBERS_DEFAULT = 10000;
 const ADDITIONAL_PRIZE_POOL_CENTS_DEFAULT = 1000000;
 const PRICE_PER_NUMBER_CENTS_DEFAULT = 50;
@@ -45,19 +44,19 @@ function getEnvironment(name, fallback = '') {
   return process.env[name] || fallback;
 }
 
-function getPagBankBaseUrl() {
-  return getEnvironment('PAGBANK_API_URL', 'https://sandbox.api.pagseguro.com').replace(/\/$/, '');
+function getMercadoPagoBaseUrl() {
+  return getEnvironment('MERCADOPAGO_API_URL', 'https://api.mercadopago.com').replace(/\/$/, '');
 }
 
 function getWebhookUrl() {
-  const explicitUrl = getEnvironment('PAGBANK_WEBHOOK_URL');
+  const explicitUrl = getEnvironment('MERCADOPAGO_WEBHOOK_URL');
   if (explicitUrl) return explicitUrl;
 
   const projectId = getEnvironment('GCLOUD_PROJECT') || getEnvironment('GCP_PROJECT');
   if (!projectId) {
     throw new Error('Não foi possível descobrir o ID do projeto para montar a URL do webhook.');
   }
-  return `https://southamerica-east1-${projectId}.cloudfunctions.net/pagbankWebhook`;
+  return `https://southamerica-east1-${projectId}.cloudfunctions.net/mercadoPagoWebhook`;
 }
 
 function getSecretValue(secretParam) {
@@ -87,10 +86,11 @@ function isAdmin(request) {
 }
 
 function requireAdmin(request) {
-  requireAuth(request);
+  const auth = requireAuth(request);
   if (!isAdmin(request)) {
     throw new HttpsError('permission-denied', 'Acesso restrito ao administrador.');
   }
+  return auth;
 }
 
 function normalizeInteger(value, fallback) {
@@ -120,8 +120,10 @@ function getConfigDefaults() {
   return {
     totalNumbers: TOTAL_NUMBERS_DEFAULT,
     totalWinningNumbers: WINNING_NUMBERS_DEFAULT,
-    prizeModel: 'premio_principal_mais_premios_adicionais',
+    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: 'Honda XRE 190 2026',
+    mainPrizeDrawStatus: 'aguardando_100_porcento',
+    additionalPrizeCount: WINNING_NUMBERS_DEFAULT,
     additionalPrizePoolCents: ADDITIONAL_PRIZE_POOL_CENTS_DEFAULT,
     targetSoldNumbers: TOTAL_NUMBERS_DEFAULT,
     pricePerNumberCents: PRICE_PER_NUMBER_CENTS_DEFAULT,
@@ -231,6 +233,45 @@ async function updateTicketDocuments(numbers, fieldsOrFactory) {
   }
 }
 
+async function recordAdditionalWinnerDocuments(numbers, assignments, orderId, buyer) {
+  const winners = (Array.isArray(numbers) ? numbers : [])
+    .map((number) => parseTicketNumber(number))
+    .filter((number) => assignments.has(number));
+  if (!winners.length) return;
+
+  const writer = db.bulkWriter();
+  for (const number of winners) {
+    const assignment = assignments.get(number) || {};
+    const winnerData = {
+      numero: number,
+      numeroFormatado: formatTicketNumber(number),
+      categoria: 'adicional',
+      premioId: assignment.premioId || null,
+      premioNome: assignment.premioNome || null,
+      premioTipo: assignment.premioTipo || 'a-definir',
+      premioValorCents: assignment.premioValorCents ?? null,
+      premioStatus: assignment.premioId ? 'definido' : 'pendente',
+      pedidoId: orderId,
+      compradorUid: buyer.uid || null,
+      comprador: buyer.name || null,
+      email: buyer.email || null,
+      cpf: buyer.cpf || null,
+      confirmadoEm: FieldValue.serverTimestamp(),
+    };
+    writer.set(db.doc(`ganhadores/adicional_${formatTicketNumber(number)}`), winnerData, { merge: true });
+    writer.set(db.doc(`numerosPremiados/${formatTicketNumber(number)}`), {
+      status: 'vendido',
+      pedidoId: orderId,
+      compradorUid: buyer.uid || null,
+      comprador: buyer.name || null,
+      email: buyer.email || null,
+      cpf: buyer.cpf || null,
+      vendidoEm: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
+  await writer.close();
+}
+
 async function getPrizeAssignmentMap(numbers = null) {
   const documents = Array.isArray(numbers)
     ? await Promise.all(numbers.map((number) => db.doc(`numerosPremiados/${formatTicketNumber(number)}`).get()))
@@ -239,21 +280,19 @@ async function getPrizeAssignmentMap(numbers = null) {
   for (const document of documents) {
     if (!document.exists) continue;
     const data = document.data() || {};
-    // Números vencedores podem estar aguardando a definição do prêmio.
-    // Registros legados sem marcador de vencedora ou catálogo continuam ignorados.
-    const isWinningNumber = data.isWinningNumber === true;
-    const hasCatalogedPrize = Boolean(data.premioId && data.premioNome && data.premioTipo);
-    if (!isWinningNumber && !hasCatalogedPrize) continue;
+    // A coleção contém os 10.000 vencedores adicionais. O catálogo do prêmio
+    // pode ficar pendente, mas a cota já deve ser marcada como vencedora.
+    if (data.isWinningNumber === false) continue;
     const number = parseTicketNumber(data.numero || document.id);
     if (number < 1 || number > TOTAL_NUMBERS_DEFAULT) continue;
     assignments.set(number, {
       premioId: data.premioId || null,
       premioNome: data.premioNome || null,
       premioTipo: data.premioTipo || null,
-      premioStatus: data.premioStatus || (hasCatalogedPrize ? 'atribuido' : 'pendente'),
       premioValorCents: Number.isInteger(Number(data.premioValorCents))
         ? Number(data.premioValorCents)
         : null,
+      prizeCategory: data.prizeCategory || 'adicional',
     });
   }
   return assignments;
@@ -268,8 +307,10 @@ async function refreshPublicState(transaction, stateData, configData) {
   transaction.set(publicStateRef, {
     totalNumbers: Number(configData.totalNumbers),
     targetSoldNumbers,
-    prizeModel: configData.prizeModel || 'premio_principal_mais_premios_adicionais',
+    prizeModel: configData.prizeModel || '10000_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: configData.mainPrizeName || 'Honda XRE 190 2026',
+    mainPrizeDrawStatus: configData.mainPrizeDrawStatus || 'aguardando_100_porcento',
+    additionalPrizeCount: Number(configData.additionalPrizeCount ?? WINNING_NUMBERS_DEFAULT),
     additionalPrizePoolCents: Number(configData.additionalPrizePoolCents ?? ADDITIONAL_PRIZE_POOL_CENTS_DEFAULT),
     pricePerNumberCents: Number(configData.pricePerNumberCents),
     soldNumbers,
@@ -333,7 +374,7 @@ async function releaseReservationInternal(orderId, reason = 'expirada') {
     };
 
     transaction.update(orderRef, {
-      status: reason === 'erro_pagbank' ? 'cancelado' : 'expirada',
+      status: reason === 'erro_mercadopago' ? 'cancelado' : 'expirada',
       releaseReason: reason,
       releasedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -366,6 +407,7 @@ async function confirmPaidOrder(orderId, payload) {
   let buyerUid = null;
   let buyerName = null;
   let buyerCpf = null;
+  let buyerEmail = null;
   let paid = false;
 
   await db.runTransaction(async (transaction) => {
@@ -383,20 +425,19 @@ async function confirmPaidOrder(orderId, payload) {
     buyerUid = order.uid || null;
     buyerName = order.nome || null;
     buyerCpf = order.cpf || null;
+    buyerEmail = order.email || null;
     if (order.status === 'pago') {
       paid = true;
       return;
     }
 
-    const paidCharge = Array.isArray(payload.charges)
-      ? payload.charges.find((charge) => charge.status === 'PAID')
-      : null;
-    const paidAmount = Number(paidCharge?.amount?.value || 0);
-    const paidCurrency = paidCharge?.amount?.currency || 'BRL';
-    if (!paidCharge || paidAmount !== Number(order.totalCents) || paidCurrency !== 'BRL') {
+    const payment = payload.payment || payload;
+    const paidAmount = Math.round(Number(payment.transaction_amount || 0) * 100);
+    const paidCurrency = String(payment.currency_id || 'BRL');
+    if (payment.status !== 'approved' || paidAmount !== Number(order.totalCents) || paidCurrency !== 'BRL') {
       transaction.update(orderRef, {
         status: 'pagamento_inconsistente',
-        pagbankPayload: payload,
+        mercadopagoPayload: payload,
         updatedAt: FieldValue.serverTimestamp(),
       });
       return;
@@ -415,7 +456,7 @@ async function confirmPaidOrder(orderId, payload) {
     if (expiresAt && expiresAt < now) {
       transaction.update(orderRef, {
         status: 'pagamento_tardio',
-        pagbankPayload: payload,
+        mercadopagoPayload: payload,
         updatedAt: FieldValue.serverTimestamp(),
       });
       return;
@@ -432,8 +473,8 @@ async function confirmPaidOrder(orderId, payload) {
     transaction.update(orderRef, {
       status: 'pago',
       paidAt: FieldValue.serverTimestamp(),
-      pagbankOrderId: payload.id || order.pagbankOrderId || null,
-      pagbankPayload: payload,
+      mercadopagoPaymentId: String(payload.id || order.mercadopagoPaymentId || ''),
+      mercadopagoPayload: payload,
       updatedAt: FieldValue.serverTimestamp(),
     });
 
@@ -448,7 +489,7 @@ async function confirmPaidOrder(orderId, payload) {
       quantidade: orderNumbers.length,
       totalCents: order.totalCents,
       status: 'pago',
-      pagbankOrderId: payload.id || order.pagbankOrderId || null,
+      mercadopagoPaymentId: String(payload.id || order.mercadopagoPaymentId || ''),
       paidAt: FieldValue.serverTimestamp(),
       criadoEm: FieldValue.serverTimestamp(),
     }, { merge: true });
@@ -476,7 +517,6 @@ async function confirmPaidOrder(orderId, payload) {
       premioId: prizeAssignments.get(ticketNumber)?.premioId || null,
       premioNome: prizeAssignments.get(ticketNumber)?.premioNome || null,
       premioTipo: prizeAssignments.get(ticketNumber)?.premioTipo || null,
-      premioStatus: prizeAssignments.get(ticketNumber)?.premioStatus || null,
       premioValorCents: prizeAssignments.get(ticketNumber)?.premioValorCents ?? null,
       pedidoId: orderId,
       comprador: buyerName,
@@ -485,46 +525,46 @@ async function confirmPaidOrder(orderId, payload) {
       reservadoAte: null,
       vendidoEm: FieldValue.serverTimestamp(),
     }));
+    await recordAdditionalWinnerDocuments(numbersToMark, prizeAssignments, orderId, {
+      uid: buyerUid,
+      name: buyerName,
+      cpf: buyerCpf,
+      email: buyerEmail,
+    });
   }
 
   return { paid, quantity: numbersToMark.length };
 }
 
-async function createPagBankOrder({ orderId, user, quantity, totalCents, expiresAt }) {
-  const accessToken = getSecretValue(PAGBANK_ACCESS_TOKEN);
+async function createMercadoPagoPayment({ orderId, user, quantity, totalCents, expiresAt }) {
+  const accessToken = getSecretValue(MERCADOPAGO_ACCESS_TOKEN);
   if (!accessToken) {
-    throw new Error('PAGBANK_ACCESS_TOKEN não configurado.');
+    throw new Error('MERCADOPAGO_ACCESS_TOKEN não configurado.');
   }
 
-  const customer = {
-    name: user.nome || user.name || 'Cliente Kóòpremia',
-    email: user.email,
-  };
+  const email = String(user.email || '').trim();
+  if (!email) throw new Error('O comprador precisa ter um e-mail válido para gerar o Pix.');
   const taxId = String(user.cpf || '').replace(/\D/g, '');
-  if (taxId.length === 11) customer.tax_id = taxId;
+  const payer = { email };
+  if (taxId.length === 11) payer.identification = { type: 'CPF', number: taxId };
 
-  const response = await fetch(`${getPagBankBaseUrl()}/orders`, {
+  const response = await fetch(`${getMercadoPagoBaseUrl()}/v1/payments`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'x-idempotency-key': orderId,
+      'X-Idempotency-Key': orderId,
     },
     body: JSON.stringify({
-      reference_id: orderId,
-      customer,
-      items: [{
-        reference_id: `cotas-${quantity}`,
-        name: 'Cotas Kóòpremia',
-        quantity: 1,
-        unit_amount: totalCents,
-      }],
-      qr_codes: [{
-        amount: { value: totalCents },
-        expiration_date: new Date(expiresAt).toISOString(),
-      }],
-      notification_urls: [getWebhookUrl()],
+      transaction_amount: Number((totalCents / 100).toFixed(2)),
+      description: `Cotas Kóòpremia (${quantity})`,
+      payment_method_id: 'pix',
+      payer,
+      external_reference: orderId,
+      date_of_expiration: new Date(expiresAt).toISOString(),
+      notification_url: getWebhookUrl(),
+      metadata: { order_id: orderId, quantity },
     }),
   });
 
@@ -537,22 +577,22 @@ async function createPagBankOrder({ orderId, user, quantity, totalCents, expires
   }
 
   if (!response.ok) {
-    logger.error('Falha ao criar pedido PagBank', { status: response.status, body });
-    throw new Error(`PagBank retornou HTTP ${response.status}.`);
+    logger.error('Falha ao criar pagamento Mercado Pago', { status: response.status, body });
+    throw new Error(`Mercado Pago retornou HTTP ${response.status}.`);
   }
 
-  const qrCode = body.qr_codes?.[0];
-  if (!body.id || !qrCode?.text) {
-    throw new Error('PagBank não retornou um QR Code Pix válido.');
+  const transactionData = body.point_of_interaction?.transaction_data;
+  if (!body.id || !transactionData?.qr_code) {
+    throw new Error('Mercado Pago não retornou um QR Code Pix válido.');
   }
-
-  const imageLink = qrCode.links?.find((link) => link.media === 'image/png');
 
   return {
-    pagbankOrderId: body.id,
-    pixCopyPaste: qrCode.text,
-    qrCodeImageUrl: imageLink?.href || null,
-    pagbankStatus: body.status || 'WAITING',
+    mercadopagoPaymentId: String(body.id),
+    pixCopyPaste: transactionData.qr_code,
+    qrCodeImageUrl: transactionData.qr_code_base64
+      ? `data:image/png;base64,${transactionData.qr_code_base64}`
+      : null,
+    mercadopagoStatus: body.status || 'pending',
   };
 }
 
@@ -685,7 +725,7 @@ exports.getPublicRaffleState = onCall({ region: 'southamerica-east1' }, async ()
 
 exports.createPixOrder = onCall({
   region: 'southamerica-east1',
-  secrets: [PAGBANK_ACCESS_TOKEN, PAGBANK_WEBHOOK_TOKEN],
+  secrets: [MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET],
 }, async (request) => {
   const auth = requireAuth(request);
   const quantity = normalizeInteger(request.data?.quantity, 0);
@@ -698,7 +738,7 @@ exports.createPixOrder = onCall({
   let userData = null;
   let totalCents = 0;
   let expiresAtMillis = 0;
-  let pagBankRequestStarted = false;
+  let mercadoPagoRequestStarted = false;
 
   try {
     await db.runTransaction(async (transaction) => {
@@ -776,7 +816,6 @@ exports.createPixOrder = onCall({
       premioId: prizeAssignments.get(ticketNumber)?.premioId || null,
       premioNome: prizeAssignments.get(ticketNumber)?.premioNome || null,
       premioTipo: prizeAssignments.get(ticketNumber)?.premioTipo || null,
-      premioStatus: prizeAssignments.get(ticketNumber)?.premioStatus || null,
       premioValorCents: prizeAssignments.get(ticketNumber)?.premioValorCents ?? null,
       pedidoId: orderId,
       comprador: userData.nome || userData.name || auth.token.name || null,
@@ -785,8 +824,8 @@ exports.createPixOrder = onCall({
       reservadoAte: Timestamp.fromMillis(expiresAtMillis),
     }));
 
-    pagBankRequestStarted = true;
-    const pix = await createPagBankOrder({
+    mercadoPagoRequestStarted = true;
+    const pix = await createMercadoPagoPayment({
       orderId,
       user: {
         ...userData,
@@ -813,12 +852,12 @@ exports.createPixOrder = onCall({
     };
   } catch (error) {
     logger.error('Erro ao criar pedido Pix', { orderId, error: error.message });
-    if (!pagBankRequestStarted) {
-      await releaseReservationInternal(orderId, 'erro_pagbank').catch((releaseError) => {
+    if (!mercadoPagoRequestStarted) {
+      await releaseReservationInternal(orderId, 'erro_mercadopago').catch((releaseError) => {
         logger.error('Falha ao liberar reserva após erro', { orderId, error: releaseError.message });
       });
     } else {
-      logger.warn('Pedido PagBank iniciado; reserva será resolvida por webhook ou expiração', { orderId });
+      logger.warn('Pagamento Mercado Pago iniciado; reserva será resolvida por webhook ou expiração', { orderId });
     }
 
     if (error instanceof HttpsError) throw error;
@@ -826,62 +865,75 @@ exports.createPixOrder = onCall({
   }
 });
 
-exports.pagbankWebhook = onRequest({
+function isValidMercadoPagoSignature(request, paymentId) {
+  const secret = getSecretValue(MERCADOPAGO_WEBHOOK_SECRET);
+  if (!secret) return false;
+  const signature = String(request.get('x-signature') || '');
+  const requestId = String(request.get('x-request-id') || '');
+  const parts = Object.fromEntries(signature.split(',').map((item) => item.trim().split('=')));
+  const ts = parts.ts;
+  const v1 = parts.v1;
+  if (!ts || !v1 || !requestId || !paymentId) return false;
+  const manifest = `id:${String(paymentId).toLowerCase()};request-id:${requestId};ts:${ts};`;
+  const expected = crypto.createHmac('sha256', secret).update(manifest, 'utf8').digest('hex');
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  const receivedBuffer = Buffer.from(v1, 'utf8');
+  return expectedBuffer.length === receivedBuffer.length && crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
+}
+
+exports.mercadoPagoWebhook = onRequest({
   region: 'southamerica-east1',
-  secrets: [PAGBANK_ACCESS_TOKEN, PAGBANK_WEBHOOK_TOKEN],
+  secrets: [MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET],
 }, async (request, response) => {
   if (request.method !== 'POST') {
     response.status(405).send('Método não permitido.');
     return;
   }
 
-  const rawBody = request.rawBody
-    ? Buffer.from(request.rawBody).toString('utf8')
-    : JSON.stringify(request.body || {});
-  const receivedSignature = String(request.get('x-authenticity-token') || '').trim().toLowerCase();
-  const accountToken = getSecretValue(PAGBANK_WEBHOOK_TOKEN) || getSecretValue(PAGBANK_ACCESS_TOKEN);
-
-  if (!receivedSignature || !accountToken) {
-    response.status(401).send('Webhook não configurado.');
+  const payload = request.body || {};
+  const paymentId = String(payload.data?.id || request.query['data.id'] || '');
+  const topic = String(payload.type || payload.topic || '').toLowerCase();
+  if (topic && topic !== 'payment') {
+    response.status(200).send('Evento ignorado.');
+    return;
+  }
+  if (!paymentId || !isValidMercadoPagoSignature(request, paymentId)) {
+    response.status(401).send('Assinatura inválida ou webhook não configurado.');
     return;
   }
 
-  const expectedSignature = crypto
-    .createHash('sha256')
-    .update(`${accountToken}-${rawBody}`, 'utf8')
-    .digest('hex');
-
-  const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
-  const receivedBuffer = Buffer.from(receivedSignature, 'utf8');
-  if (expectedBuffer.length !== receivedBuffer.length || !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
-    response.status(401).send('Assinatura inválida.');
+  const accessToken = getSecretValue(MERCADOPAGO_ACCESS_TOKEN);
+  if (!accessToken) {
+    response.status(503).send('Mercado Pago não configurado.');
     return;
   }
 
-  let payload;
   try {
-    payload = JSON.parse(rawBody);
-  } catch (error) {
-    response.status(400).send('JSON inválido.');
-    return;
-  }
-
-  const paid = Array.isArray(payload.charges)
-    && payload.charges.some((charge) => charge.status === 'PAID');
-  if (paid && payload.reference_id) {
+    const paymentResponse = await fetch(`${getMercadoPagoBaseUrl()}/v1/payments/${encodeURIComponent(paymentId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+    });
+    const paymentText = await paymentResponse.text();
+    let payment;
     try {
-      await confirmPaidOrder(payload.reference_id, payload);
+      payment = JSON.parse(paymentText);
     } catch (error) {
-      logger.error('Falha ao confirmar pagamento do webhook', {
-        referenceId: payload.reference_id,
-        error: error.message,
-      });
+      payment = { raw: paymentText };
+    }
+    if (!paymentResponse.ok) {
+      logger.error('Falha ao consultar pagamento Mercado Pago', { paymentId, status: paymentResponse.status, payment });
       response.status(500).send('Falha temporária.');
       return;
     }
-  }
 
-  response.status(200).send('OK');
+    const orderId = String(payment.external_reference || payment.metadata?.order_id || '');
+    if (orderId && payment.status === 'approved') {
+      await confirmPaidOrder(orderId, { id: paymentId, payment, provider: 'mercadopago' });
+    }
+    response.status(200).send('OK');
+  } catch (error) {
+    logger.error('Falha ao processar webhook Mercado Pago', { paymentId, error: error.message });
+    response.status(500).send('Falha temporária.');
+  }
 });
 
 exports.expireReservations = onSchedule({
@@ -953,6 +1005,169 @@ exports.updateRaffleConfig = onCall({ region: 'southamerica-east1' }, async (req
   });
 
   return { targetSoldNumbers, status: requestedStatus || current.status || 'preparacao' };
+});
+
+function serializeWinner(snapshot) {
+  const data = snapshot.data() || {};
+  return {
+    id: snapshot.id,
+    ...data,
+    confirmadoEm: serializeTimestamp(data.confirmadoEm),
+    sorteadoEm: serializeTimestamp(data.sorteadoEm),
+  };
+}
+
+exports.getAdminPurchases = onCall({ region: 'southamerica-east1' }, async (request) => {
+  requireAdmin(request);
+  const pageSize = Math.min(200, Math.max(1, normalizeInteger(request.data?.pageSize, 100)));
+  const startAfter = request.data?.startAfter ? Timestamp.fromMillis(Number(request.data.startAfter)) : null;
+  let query = db.collection('compras').orderBy('criadoEm', 'desc').limit(pageSize);
+  if (startAfter) query = query.startAfter(startAfter);
+  const snapshot = await query.get();
+  const purchases = snapshot.docs.map((document) => ({
+    id: document.id,
+    ...document.data(),
+    criadoEm: serializeTimestamp(document.data().criadoEm),
+    paidAt: serializeTimestamp(document.data().paidAt),
+  }));
+  const last = snapshot.docs.at(-1)?.data()?.criadoEm;
+  return {
+    purchases,
+    nextStartAfter: last?.toMillis ? last.toMillis() : null,
+    hasMore: purchases.length === pageSize,
+  };
+});
+
+exports.getAdminWinners = onCall({ region: 'southamerica-east1' }, async (request) => {
+  requireAdmin(request);
+  const pageSize = Math.min(200, Math.max(1, normalizeInteger(request.data?.pageSize, 100)));
+  const startAfter = normalizeInteger(request.data?.startAfter, 0);
+  let query = db.collection('ganhadores').orderBy('numero').limit(pageSize);
+  if (startAfter) query = query.startAfter(startAfter);
+  const snapshot = await query.get();
+  const winners = snapshot.docs.map(serializeWinner).filter((winner) => winner.categoria === 'adicional');
+  const nextStartAfter = winners.length ? Number(winners[winners.length - 1].numero) : null;
+  return { winners, nextStartAfter, hasMore: snapshot.docs.length === pageSize };
+});
+
+exports.drawXreWinner = onCall({ region: 'southamerica-east1' }, async (request) => {
+  const auth = requireAdmin(request);
+  const drawRef = db.doc('sorteios/xre');
+  let shouldProceed = false;
+  let completedDraw = null;
+
+  await db.runTransaction(async (transaction) => {
+    const [drawSnapshot, stateSnapshot, configSnapshot] = await Promise.all([
+      transaction.get(drawRef),
+      transaction.get(raffleStateRef),
+      transaction.get(raffleConfigRef),
+    ]);
+    if (drawSnapshot.exists && drawSnapshot.data()?.status === 'concluido') {
+      completedDraw = drawSnapshot.data();
+      return;
+    }
+    if (drawSnapshot.exists && drawSnapshot.data()?.status === 'sorteando') {
+      throw new HttpsError('already-exists', 'Já existe um sorteio da XRE em andamento.');
+    }
+    const state = stateSnapshot.exists ? stateSnapshot.data() : {};
+    const config = configSnapshot.exists ? configSnapshot.data() : getConfigDefaults();
+    const soldNumbers = Number(state.soldNumbers || 0);
+    const targetSoldNumbers = Number(config.targetSoldNumbers || config.totalNumbers || TOTAL_NUMBERS_DEFAULT);
+    if (soldNumbers < targetSoldNumbers || state.status !== 'encerrada') {
+      throw new HttpsError('failed-precondition', 'O sorteio da XRE só pode ocorrer quando o cotômetro atingir 100%.');
+    }
+    transaction.set(drawRef, {
+      status: 'sorteando',
+      startedAt: FieldValue.serverTimestamp(),
+      startedByUid: auth.uid,
+      targetSoldNumbers,
+      soldNumbers,
+    }, { merge: true });
+    shouldProceed = true;
+  });
+
+  if (completedDraw) return { status: 'concluido', winner: completedDraw };
+  if (!shouldProceed) throw new HttpsError('failed-precondition', 'Não foi possível iniciar o sorteio.');
+
+  try {
+    const [purchasesSnapshot, additionalWinnersSnapshot] = await Promise.all([
+      db.collection('compras').where('status', '==', 'pago').get(),
+      db.collection('ganhadores').where('categoria', '==', 'adicional').get(),
+    ]);
+    const additionalNumbers = new Set(additionalWinnersSnapshot.docs.map((document) => Number(document.data()?.numero)));
+    const candidates = [];
+    for (const purchaseSnapshot of purchasesSnapshot.docs) {
+      const purchase = purchaseSnapshot.data() || {};
+      for (const rawNumber of Array.isArray(purchase.numeros) ? purchase.numeros : []) {
+        const number = parseTicketNumber(rawNumber);
+        if (number >= 1 && number <= TOTAL_NUMBERS_DEFAULT && !additionalNumbers.has(number)) {
+          candidates.push({
+            numero: number,
+            pedidoId: purchase.pedidoId || purchaseSnapshot.id,
+            uid: purchase.uid || null,
+            nome: purchase.nome || null,
+            email: purchase.email || null,
+            cpf: purchase.cpf || null,
+          });
+        }
+      }
+    }
+    if (!candidates.length) throw new Error('Nenhum número elegível para a XRE.');
+    const selected = candidates[crypto.randomInt(candidates.length)];
+    const configSnapshot = await raffleConfigRef.get();
+    const config = configSnapshot.exists ? configSnapshot.data() : getConfigDefaults();
+    const winner = {
+      categoria: 'principal',
+      premioId: 'xre-190-2026',
+      premioNome: config.mainPrizeName || 'Honda XRE 190 2026',
+      premioTipo: 'principal',
+      numero: selected.numero,
+      numeroFormatado: formatTicketNumber(selected.numero),
+      pedidoId: selected.pedidoId,
+      compradorUid: selected.uid,
+      comprador: selected.nome,
+      email: selected.email,
+      cpf: selected.cpf,
+      categoriaElegibilidade: 'comprado_e_nao_premiado_adicional',
+      candidatoCount: candidates.length,
+      sorteadoPorUid: auth.uid,
+      sorteadoEm: FieldValue.serverTimestamp(),
+      status: 'concluido',
+    };
+
+    await db.runTransaction(async (transaction) => {
+      const [drawSnapshot, stateSnapshot] = await Promise.all([
+        transaction.get(drawRef),
+        transaction.get(raffleStateRef),
+      ]);
+      if (drawSnapshot.data()?.status === 'concluido') return;
+      const state = stateSnapshot.exists ? stateSnapshot.data() : {};
+      if (Number(state.soldNumbers || 0) < Number(state.targetSoldNumbers || config.targetSoldNumbers || TOTAL_NUMBERS_DEFAULT)) {
+        throw new HttpsError('failed-precondition', 'A campanha deixou de estar completa; o sorteio foi cancelado.');
+      }
+      transaction.set(drawRef, winner, { merge: true });
+      transaction.set(db.doc('ganhadores/xre'), winner, { merge: true });
+    });
+
+    await updateTicketDocuments([selected.numero], {
+      status: 'indisponivel',
+      premiada: true,
+      premioId: winner.premioId,
+      premioNome: winner.premioNome,
+      premioTipo: winner.premioTipo,
+      pedidoId: selected.pedidoId,
+      comprador: selected.nome,
+      cpf: selected.cpf,
+      compradorUid: selected.uid,
+      vendidoEm: FieldValue.serverTimestamp(),
+    });
+    logger.info('Sorteio da XRE concluído', { numero: selected.numero, pedidoId: selected.pedidoId, candidateCount: candidates.length });
+    return { status: 'concluido', winner: { ...winner, sorteadoEm: new Date().toISOString() } };
+  } catch (error) {
+    await drawRef.set({ status: 'erro', errorMessage: error.message, failedAt: FieldValue.serverTimestamp() }, { merge: true });
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError('internal', 'Não foi possível concluir o sorteio da XRE.');
+  }
 });
 
 exports.getMyOrders = onCall({ region: 'southamerica-east1' }, async (request) => {

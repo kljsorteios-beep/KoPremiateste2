@@ -1,8 +1,8 @@
 # Kóòpremios
 
-Site da campanha com Firebase Authentication, Firestore e Cloud Functions para reserva de números e integração Pix PagBank.
+Site da campanha com Firebase Authentication, Firestore e Cloud Functions para reserva de números e integração Mercado Pago Pix.
 
-A campanha utiliza 150.000 números e reserva 10.000 cotas vencedoras escolhidas aleatoriamente com fonte segura. O plano de premiação é separado: há um prêmio principal, atualmente a Honda XRE 190 2026, e prêmios adicionais que podem totalizar R$ 10.000,00. Os números vencedores são confidenciais; os nomes e valores dos prêmios podem ser definidos posteriormente pelo administrador.
+A campanha utiliza 150.000 números, dos quais exatamente 10.000 cotas adicionais são reservadas para premiação. A Honda XRE 190 2026 é o prêmio principal e fica fora dessas 10.000 cotas; ela será sorteada separadamente quando a campanha atingir 100%. O fundo adicional de R$ 10.000,00 é dividido entre as cotas adicionais conforme o plano de prêmios definido pelo administrador.
 
 ## Desenvolvimento local
 
@@ -21,7 +21,7 @@ npm --prefix functions run lint
 
 ## Modelo de prêmios
 
-O gerador cria 10.000 números vencedores aleatórios por padrão. O arquivo `numeros-premiados.csv` e o manifesto são confidenciais e nunca devem ser publicados no frontend ou no GitHub público. Os prêmios podem começar com `premioStatus: "pendente"` e ser definidos depois pelo administrador, usando os campos `premioId`, `premioNome`, `premioTipo` e, quando aplicável, `premioValorCents`.
+O gerador cria exatamente 10.000 cotas vencedoras adicionais por padrão, com `isWinningNumber: true` e `prizeCategory: adicional`. O mapa permanece confidencial e os nomes/valores podem ser definidos posteriormente. A XRE não é gravada nessa lista; seu resultado fica em `sorteios/xre` e `ganhadores/xre` após 100%.
 
 ## Expansão segura do Firestore
 
@@ -29,8 +29,8 @@ Faça backup e configure uma conta de serviço segura antes de executar. O prime
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=/caminho/seguro/firebase-service-account.json
-node scripts/expand-firestore.js --prizes-file=/caminho/seguro/premios.json
-node scripts/expand-firestore.js --apply --prizes-file=/caminho/seguro/premios.json
+node scripts/expand-firestore.js
+node scripts/expand-firestore.js --apply --keep-existing-winners
 ```
 
 Se os registros legados da coleção `numerosPremiados` ainda representarem uma configuração antiga, a exclusão deve ser uma decisão explícita e só ocorrer após backup:
@@ -46,8 +46,8 @@ O modo compacto não materializa 150.000 documentos `cotas`; eles são criados s
 Tokens e chaves não devem ser colocados no HTML ou no GitHub:
 
 ```bash
-firebase functions:secrets:set PAGBANK_ACCESS_TOKEN
-firebase functions:secrets:set PAGBANK_WEBHOOK_TOKEN
+firebase functions:secrets:set MERCADOPAGO_ACCESS_TOKEN
+firebase functions:secrets:set MERCADOPAGO_WEBHOOK_SECRET
 firebase functions:secrets:set RESEND_API_KEY
 ```
 
@@ -59,6 +59,6 @@ Configure `EMAIL_FROM` com um endereço de remetente de domínio verificado no p
 firebase deploy --only firestore:rules,firestore:indexes,functions,hosting
 ```
 
-Antes de abrir as vendas, configure o faturamento do projeto, publique as Functions, valide o domínio no Firebase Authentication, configure o PagBank e execute uma compra sandbox controlada. O webhook deve confirmar somente pagamentos `PAID` com valor e moeda compatíveis.
+Antes de abrir as vendas, resolva todas as pendências do faturamento, publique as Functions e regras, valide o domínio no Firebase Authentication, configure o Mercado Pago Pix e execute uma compra de teste controlada. O webhook deve consultar o pagamento oficial e confirmar somente status `approved`, valor e moeda compatíveis. Confirme também que uma cota premiada cria um documento privado em `ganhadores` e que o sorteio da XRE permanece bloqueado antes de 100%.
 
 A documentação detalhada está em [`IMPLEMENTACAO.md`](IMPLEMENTACAO.md), e a auditoria histórica está em [`AUDITORIA.md`](AUDITORIA.md).

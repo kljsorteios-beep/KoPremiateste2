@@ -6,6 +6,7 @@ const path = require('node:path');
 
 const DEFAULTS = {
   total: 150000,
+  // 10.000 cotas adicionais; a XRE é sorteada separadamente aos 100%.
   winners: 10000,
   prizePoolCents: 1000000,
   mainPrizeName: 'Honda XRE 190 2026',
@@ -14,6 +15,7 @@ const DEFAULTS = {
   reservationMinutes: 10,
   shardSize: 1000,
   preserveExistingCount: 10000,
+  mainPrizeDrawStatus: 'aguardando_100_porcento',
 };
 
 function parseArgs(argv) {
@@ -128,8 +130,10 @@ async function publishData(options, data, outputDir) {
   writer.set(configRef, {
     totalNumbers: options.total,
     totalWinningNumbers: data.winners.length,
-    prizeModel: 'premio_principal_mais_premios_adicionais',
+    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
+    mainPrizeDrawStatus: options.mainPrizeDrawStatus,
+    additionalPrizeCount: data.winners.length,
     additionalPrizePoolCents: options.prizePoolCents,
     targetSoldNumbers: options.target,
     pricePerNumberCents: options.priceCents,
@@ -150,8 +154,10 @@ async function publishData(options, data, outputDir) {
   writer.set(publicRef, {
     totalNumbers: options.total,
     targetSoldNumbers: options.target,
-    prizeModel: 'premio_principal_mais_premios_adicionais',
+    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
+    mainPrizeDrawStatus: options.mainPrizeDrawStatus,
+    additionalPrizeCount: data.winners.length,
     additionalPrizePoolCents: options.prizePoolCents,
     pricePerNumberCents: options.priceCents,
     soldNumbers: 0,
@@ -168,8 +174,10 @@ async function publishData(options, data, outputDir) {
     totalWinningNumbers: data.winners.length,
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
-    prizeModel: 'premio_principal_mais_premios_adicionais',
+    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
+    mainPrizeDrawStatus: options.mainPrizeDrawStatus,
+    additionalPrizeCount: data.winners.length,
     additionalPrizePoolCents: options.prizePoolCents,
     createdAt: FieldValue.serverTimestamp(),
     status: 'sealed',
@@ -190,12 +198,12 @@ async function publishData(options, data, outputDir) {
       numero: number,
       numeroFormatado: formatNumber(number),
       generationId: data.generationId,
-      status: 'disponivel',
       isWinningNumber: true,
+      prizeCategory: 'adicional',
+      status: 'disponivel',
       premioId: null,
       premioNome: null,
       premioTipo: null,
-      premioStatus: 'pendente',
       premioValorCents: null,
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -223,8 +231,10 @@ async function publishData(options, data, outputDir) {
     generationId: data.generationId,
     totalNumbers: options.total,
     totalWinningNumbers: data.winners.length,
-    prizeModel: 'premio_principal_mais_premios_adicionais',
+    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
+    mainPrizeDrawStatus: options.mainPrizeDrawStatus,
+    additionalPrizeCount: data.winners.length,
     additionalPrizePoolCents: options.prizePoolCents,
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
@@ -250,8 +260,10 @@ async function main() {
     generationId: data.generationId,
     totalNumbers: options.total,
     totalWinningNumbers: data.winners.length,
-    prizeModel: 'premio_principal_mais_premios_adicionais',
+    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
+    mainPrizeDrawStatus: options.mainPrizeDrawStatus,
+    additionalPrizeCount: data.winners.length,
     additionalPrizePoolCents: options.prizePoolCents,
     targetSoldNumbers: options.target,
     pricePerNumberCents: options.priceCents,
@@ -261,7 +273,7 @@ async function main() {
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
     generatedAt: new Date().toISOString(),
-    note: 'O arquivo numeros-premiados.csv é confidencial. São gerados 10.000 números vencedores aleatórios por padrão, mas os nomes e valores dos prêmios podem ser definidos depois; não publicar este arquivo no frontend ou no GitHub público.',
+    note: 'O arquivo numeros-premiados.csv é confidencial. Contém 10.000 vencedores adicionais; a XRE é sorteada separadamente quando a campanha atingir 100%. Não publicar este arquivo no frontend ou no GitHub público.',
   });
 
   if (options.publish) {
@@ -273,8 +285,10 @@ async function main() {
     generationId: data.generationId,
     totalNumbers: options.total,
     totalWinningNumbers: data.winners.length,
-    prizeModel: 'premio_principal_mais_premios_adicionais',
+    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
+    mainPrizeDrawStatus: options.mainPrizeDrawStatus,
+    additionalPrizeCount: data.winners.length,
     additionalPrizePoolCents: options.prizePoolCents,
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,

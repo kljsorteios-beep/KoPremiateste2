@@ -10,6 +10,10 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
     match /publico/{documentId} {
       allow read: if documentId == 'rifa';
       allow write: if false;
@@ -57,6 +61,16 @@ service cloud.firestore {
     }
 
     match /auditoriaGeracoes/{documentId} {
+      allow read, write: if false;
+    }
+
+    // Resultados e dados dos ganhadores nunca são lidos diretamente pelo cliente.
+    // As funções administrativas usam o Admin SDK após validar o administrador.
+    match /ganhadores/{documentId} {
+      allow read, write: if false;
+    }
+
+    match /sorteios/{documentId} {
       allow read, write: if false;
     }
   }
