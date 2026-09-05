@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Criar Conta | Kóòpremios</title>
+    <title>Criar Conta | Kóôpremios</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -249,7 +249,7 @@
 
     <header class="navbar">
         <div class="container nav-content">
-            <a href="index.html" class="logo">Kóò<span class="text-gold">premios</span></a>
+            <a href="index.html" class="logo">Kóô<span class="text-gold">premios</span></a>
             <a href="index.html" class="back-link">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 Voltar ao site
@@ -341,16 +341,14 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 Kóòpremios. Todos os direitos reservados.</p>
+            <p>&copy; 2026 Kóôpremios. Todos os direitos reservados.</p>
         </div>
     </footer>
 
-    <!-- Script de Máscaras dos Campos -->
     <script>
         const telefoneInput = document.getElementById('telefone');
         const cpfInput = document.getElementById('cpf');
 
-        // Máscara de telefone com DDD
         telefoneInput.addEventListener('input', function () {
             let v = this.value.replace(/\D/g, '').slice(0, 11);
             if (v.length > 6) {
@@ -363,7 +361,6 @@
             this.value = v;
         });
 
-        // Máscara de CPF
         cpfInput.addEventListener('input', function () {
             let v = this.value.replace(/\D/g, '').slice(0, 11);
             v = v.replace(/(\d{3})(\d)/, '$1.$2');
@@ -373,11 +370,10 @@
         });
     </script>
 
-    <!-- Script de Integração com Firebase e ViaCEP -->
     <script type="module">
         import { auth, db, browserLocalPersistence, setPersistence } from './firebase-client.js';
         import { createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { doc, setDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         function mostrarErro(msg) {
             const errorBox = document.getElementById('errorBox');
@@ -409,7 +405,6 @@
             });
         });
 
-        // Busca de CEP em tempo real assim que completar 8 dígitos
         const cepInput = document.getElementById('cep');
         if (cepInput) {
             cepInput.addEventListener('input', async function() {
@@ -436,12 +431,11 @@
             });
         }
 
-        // Envio do formulário com validação e salvamento no Firebase
         document.getElementById('cadastroForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const btn = this.querySelector('.btn-submit');
-            btn.innerText = "CRIANDO CONTA...";
+            btn.innerText = "VERIFICANDO...";
             btn.disabled = true;
 
             const nome = document.getElementById('nome').value.trim();
@@ -456,29 +450,39 @@
             const cidade = document.getElementById('cidade').value.trim();
             const uf = document.getElementById('uf').value.trim();
 
-            // Validações básicas de preenchimento
             if (!nome || !telefone || !cpf || !email || !senha || !dataNascimento || !cep) {
-                mostrarErro("Por favor, preencha todos os campos obrigatórios.");
+                mostrarErro("Por favor, preencha todos os campos obrigatÃ³rios.");
                 btn.innerText = "CRIAR CONTA";
                 btn.disabled = false;
                 return;
             }
 
             try {
-                // 1. Mantém a sessão ao redirecionar para o index.
+                // 1. VERIFICAÇÃO DE CPF DUPLICADO
+                const cpfNormalizado = cpf.replace(/\D/g, '');
+                const qCpf = query(collection(db, "usuarios"), where("cpfNormalizado", "==", cpfNormalizado));
+                const snapCpf = await getDocs(qCpf);
+
+                if (!snapCpf.empty) {
+                    mostrarErro("Este CPF já está cadastrado em nosso sistema.");
+                    btn.innerText = "CRIAR CONTA";
+                    btn.disabled = false;
+                    return;
+                }
+
                 await setPersistence(auth, browserLocalPersistence);
 
-                // 2. Cria login de autenticação no Firebase
+                // 2. Cria login (o Firebase Auth já impede emails duplicados automaticamente)
                 const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
                 const user = userCredential.user;
 
-                // 3. Salva o documento completo na coleção 'usuarios' do Firestore Database
+                // 3. Salva perfil
                 await setDoc(doc(db, "usuarios", user.uid), {
                     uid: user.uid,
                     nome,
                     telefone,
                     cpf,
-                    cpfNormalizado: cpf.replace(/\D/g, ''),
+                    cpfNormalizado,
                     email,
                     dataNascimento,
                     cep,
@@ -490,25 +494,17 @@
                 });
 
                 mostrarSucesso('Conta criada com sucesso! Redirecionando...');
-
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 1200);
+                setTimeout(() => { window.location.href = 'index.html'; }, 1200);
 
             } catch (error) {
                 console.error("Erro no cadastro:", error);
-                
-                // Trata as mensagens de erro conhecidas do Firebase de forma amigável
                 if (error.code === 'auth/email-already-in-use') {
                     mostrarErro('Este e-mail já está cadastrado. Tente fazer login.');
                 } else if (error.code === 'auth/weak-password') {
                     mostrarErro('A senha deve conter no mínimo 6 caracteres.');
-                } else if (error.code === 'auth/admin-restricted-operation') {
-                    mostrarErro('Ative o provedor E-mail/Senha na aba Authentication do Firebase.');
                 } else {
                     mostrarErro('Ocorreu um erro ao criar a conta. Tente novamente.');
                 }
-
                 btn.innerText = "CRIAR CONTA";
                 btn.disabled = false;
             }
