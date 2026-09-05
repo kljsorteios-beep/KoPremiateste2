@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minha Conta | Kóòpremios</title>
+    <title>Minha Conta | KÃ³Ã²premios</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -103,6 +103,7 @@
             padding-bottom: 10px;
         }
 
+        /* Grid corrigido para empilhar direitinho no celular e organizar no PC */
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -166,6 +167,7 @@
             padding: 20px 0;
         }
 
+        /* Ajustes especÃ­ficos para celulares pequenos */
         @media (max-width: 650px) {
             .info-grid {
                 grid-template-columns: 1fr;
@@ -192,7 +194,7 @@
 
     <header class="navbar">
         <div class="container nav-content">
-            <a href="index.html" class="logo">Kóò<span class="text-gold">premios</span></a>
+            <a href="index.html" class="logo">KÃ³Ã²<span class="text-gold">premios</span></a>
             <a href="index.html" class="back-link">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 Voltar ao site
@@ -223,55 +225,51 @@
             </div>
             <button class="btn-logout" onclick="fazerLogout()">Sair da Conta</button>
         </div>
+
+        <div id="admin-section" style="display: none;">
+            <div class="profile-card" style="border-color: var(--gold-light); background: rgba(212, 175, 55, 0.05);">
                 <h2 style="color: var(--gold-light);">Painel do Administrador</h2>
                 <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">
-                    Acesso exclusivo para gestão de sorteios e auditoria.
+                    Acesso exclusivo para gestÃ£o de sorteios e auditoria.
                 </p>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <a href="roleta.html" style="background: var(--primary); color: #081021; padding: 12px 20px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; transition: var(--transition); text-align: center; flex: 1; min-width: 200px;">
-                        🎡 Abrir Roleta de Sorteios
+                        ðŸŽ¡ Abrir Roleta de Sorteios
                     </a>
                     <a href="admin.html" style="background: var(--surface-hover); color: var(--text-color); padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: var(--transition); text-align: center; flex: 1; min-width: 200px; border: 1px solid rgba(212, 175, 55, 0.3);">
-                        ⚙️ Gestão Geral
+                        âš™ï¸ GestÃ£o Geral
                     </a>
                 </div>
             </div>
         </div>
 
         <div class="orders-card">
-            <h2>Meus Títulos (Cotas)</h2>
+            <h2>Meus TÃ­tulos (Cotas)</h2>
             <div id="listaCotas">
-                <p class="empty-text">Você ainda não possui cotas compradas.</p>
+                <p class="empty-text">VocÃª ainda nÃ£o possui cotas compradas.</p>
             </div>
         </div>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 Kóòpremios. Todos os direitos reservados.</p>
+            <p>&copy; 2026 KÃ³Ã²premios. Todos os direitos reservados.</p>
         </div>
     </footer>
 
-      <script type="module">
-        import { auth, db, onAuthStateChanged, signOut } from './firebase-client.js';
+    <script type="module">
+        import { auth, db, functions, httpsCallable, onAuthStateChanged, signOut } from './firebase-client.js';
         import { doc, getDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
-
-        // CORREÇÃO CRUCIAL: Avisando ao site que as funções estão em São Paulo
-        const functions = getFunctions(undefined, 'southamerica-east1');
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                const emailEl = document.getElementById('userEmail');
-                if (emailEl) emailEl.innerText = user.email;
+                document.getElementById('userEmail').innerText = user.email;
 
                 try {
-                    // Agora ele vai procurar em southamerica-east1 e vai encontrar!
+                    // --- CHECK ADMIN STATUS ---
                     const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
-                    const adminSection = document.getElementById('admin-section');
-
-                    if (adminCheck.data && adminCheck.data.isAdmin && adminSection) {
-                        adminSection.style.display = 'block';
+                    if (adminCheck.data.isAdmin) {
+                        document.getElementById('admin-section').style.display = 'block';
                     }
 
                     const userDocRef = doc(db, "usuarios", user.uid);
@@ -287,58 +285,51 @@
 
                     if (userDoc && userDoc.exists()) {
                         const dados = userDoc.data();
-                        const nameEl = document.getElementById('userName');
-                        const cpfEl = document.getElementById('userCpf');
-                        const phoneEl = document.getElementById('userPhone');
-
-                        if (nameEl) nameEl.innerText = dados.nome || dados.name || "Não informado";
-                        if (cpfEl) cpfEl.innerText = dados.cpf || "Não informado";
-                        if (phoneEl) phoneEl.innerText = dados.telefone || dados.phone || "Não informado";
+                        document.getElementById('userName').innerText = dados.nome || dados.name || "NÃ£o informado";
+                        document.getElementById('userCpf').innerText = dados.cpf || "NÃ£o informado";
+                        document.getElementById('userPhone').innerText = dados.telefone || dados.phone || "NÃ£o informado";
                     } else {
-                        const nameEl = document.getElementById('userName');
-                        const cpfEl = document.getElementById('userCpf');
-                        const phoneEl = document.getElementById('userPhone');
-                        if (nameEl) nameEl.innerText = "Não cadastrado";
-                        if (cpfEl) cpfEl.innerText = "Não cadastrado";
-                        if (phoneEl) phoneEl.innerText = "Não cadastrado";
+                        document.getElementById('userName').innerText = "NÃ£o cadastrado";
+                        document.getElementById('userCpf').innerText = "NÃ£o cadastrado";
+                        document.getElementById('userPhone').innerText = "NÃ£o cadastrado";
                     }
 
+                    // --- BUSCAR AS COTAS (TÃTULOS) DO USUÃRIO ---
                     const listaCotasDiv = document.getElementById('listaCotas');
-                    if (listaCotasDiv) {
-                        const qCotas = query(collection(db, "compras"), where("uid", "==", user.uid));
-                        const querySnapshotCotas = await getDocs(qCotas);
+                    const qCotas = query(collection(db, "compras"), where("uid", "==", user.uid));
+                    const querySnapshotCotas = await getDocs(qCotas);
 
-                        if (!querySnapshotCotas.empty) {
-                            listaCotasDiv.innerHTML = "";
+                    if (!querySnapshotCotas.empty) {
+                        listaCotasDiv.innerHTML = ""; // Limpa a mensagem padrÃ£o
+                        
+                        querySnapshotCotas.forEach((docCota) => {
+                            const compra = docCota.data();
+                            
+                            const card = document.createElement('div');
+                            card.style.cssText = "background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(212,175,55,0.2);";
+                            
+                            const title = document.createElement('h3');
+                            title.style.cssText = 'color:var(--primary); font-size: 1rem;';
+                            title.textContent = compra.nomeRifa || 'Sorteio';
 
-                            querySnapshotCotas.forEach((docCota) => {
-                                const compra = docCota.data();
-                                const card = document.createElement('div');
-                                card.style.cssText = "background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(212,175,55,0.2);";
+                            const numbers = document.createElement('p');
+                            numbers.style.cssText = 'font-size: 0.85rem; color: #ccc; margin-top: 4px;';
+                            const formattedNumbers = (compra.numeros || []).map((number) => String(number).padStart(6, '0'));
+                            numbers.textContent = `NÃºmeros: ${formattedNumbers.join(', ') || 'Nenhum'}`;
 
-                                const title = document.createElement('h3');
-                                title.style.cssText = 'color:var(--primary); font-size: 1rem;';
-                                title.textContent = compra.nomeRifa || 'Sorteio';
+                            const details = document.createElement('div');
+                            details.append(title, numbers);
 
-                                const numbers = document.createElement('p');
-                                numbers.style.cssText = 'font-size: 0.85rem; color: #ccc; margin-top: 4px;';
-                                const formattedNumbers = (compra.numeros || []).map((number) => String(number).padStart(6, '0'));
-                                numbers.textContent = `Números: ${formattedNumbers.join(', ') || 'Nenhum'}`;
+                            const status = document.createElement('span');
+                            status.style.cssText = `background: ${compra.status === 'pago' ? '#22c55e' : '#f59e0b'}; color: #081021; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;`;
+                            status.textContent = (compra.status || 'pendente').toUpperCase();
 
-                                const details = document.createElement('div');
-                                details.append(title, numbers);
-
-                                const status = document.createElement('span');
-                                status.style.cssText = `background: ${compra.status === 'pago' ? '#22c55e' : '#f59e0b'}; color: #081021; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;`;
-                                status.textContent = (compra.status || 'pendente').toUpperCase();
-
-                                const row = document.createElement('div');
-                                row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:12px;';
-                                row.append(details, status);
-                                card.appendChild(row);
-                                listaCotasDiv.appendChild(card);
-                            });
-                        }
+                            const row = document.createElement('div');
+                            row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:12px;';
+                            row.append(details, status);
+                            card.appendChild(row);
+                            listaCotasDiv.appendChild(card);
+                        });
                     }
 
                 } catch (error) {
@@ -361,3 +352,4 @@
     </script>
 </body>
 </html>
+
