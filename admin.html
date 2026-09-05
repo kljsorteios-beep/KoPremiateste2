@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Painel administrativo | Kóôpremios</title>
+  <title>Painel administrativo | K&oacute;&ocirc;premios</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
   <style>
     :root { --gold:#d4af37; --gold-light:#fced9e; --bg:#081021; --surface:#0f172a; --muted:#a8a8b3; --error:#ff8b8b; --success:#7ee2a8; }
@@ -31,44 +31,44 @@
   <main>
     <div class="card">
       <h1>Painel administrativo</h1>
-      <p class="muted">Área restrita. A autorização é conferida no backend por UID/claim de administrador.</p>
+      <p class="muted">&Aacute;rea restrita. A autoriza&ccedil;&atilde;o &eacute; conferida no backend por UID/claim de administrador.</p>
       <div id="message" class="message" hidden></div>
       <div class="stats">
         <div class="stat"><small>Vendidos</small><strong id="sold">0</strong></div>
         <div class="stat"><small>Reservados</small><strong id="reserved">0</strong></div>
         <div class="stat"><small>Meta atual</small><strong id="target">0</strong></div>
-        <div class="stat"><small>Status</small><strong id="status">—</strong></div>
+        <div class="stat"><small>Status</small><strong id="status">&mdash;</strong></div>
       </div>
     </div>
 
     <div class="card">
-      <h2>Configuração da campanha</h2>
+      <h2>Configura&ccedil;&atilde;o da campanha</h2>
       <div class="grid">
-        <div><label for="targetInput">Meta de números vendidos</label><input id="targetInput" type="number" min="1" max="150000" value="150000"></div>
+        <div><label for="targetInput">Meta de n&uacute;meros vendidos</label><input id="targetInput" type="number" min="1" max="150000" value="150000"></div>
         <div><label for="statusInput">Status</label><select id="statusInput"><option value="preparacao">Preparação</option><option value="aberta">Aberta</option><option value="encerrada">Encerrada</option></select></div>
       </div>
-      <div class="actions"><button id="saveConfig">Salvar configuração</button></div>
+      <div class="actions"><button id="saveConfig">Salvar configura&ccedil;&atilde;o</button></div>
     </div>
 
     <div class="card">
       <h2>Compras confirmadas</h2>
-      <p class="muted">Histórico dos pedidos registrados após confirmação do pagamento. Os dados são carregados somente pelo backend para o administrador.</p>
+      <p class="muted">Hist&oacute;rico dos pedidos registrados ap&oacute;s confirma&ccedil;&atilde;o do pagamento. Os dados s&atilde;o carregados somente pelo backend para o administrador.</p>
       <div class="actions"><button id="loadPurchases">Carregar compras</button></div>
       <div id="purchasesStatus" class="muted"></div>
-      <div class="table-wrap"><table id="purchasesTable" hidden><thead><tr><th>Data</th><th>Comprador</th><th>E-mail</th><th>Números</th><th>Total</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table id="purchasesTable" hidden><thead><tr><th>Data</th><th>Comprador</th><th>E-mail</th><th>N&uacute;meros</th><th>Total</th><th>Status</th></tr></thead><tbody></tbody></table></div>
     </div>
 
     <div class="card">
       <h2>Ganhadores de cotas adicionais</h2>
-      <p class="muted">Aqui aparecem separadamente os compradores de uma das 10.000 cotas adicionais premiadas. A XRE possui um registro próprio abaixo.</p>
+      <p class="muted">Aqui aparecem separadamente os compradores de uma das 10.000 cotas adicionais premiadas. A XRE possui um registro pr&oacute;prio abaixo.</p>
       <div class="actions"><button id="loadWinners">Carregar ganhadores</button></div>
       <div id="winnersStatus" class="muted"></div>
-      <div class="table-wrap"><table id="winnersTable" hidden><thead><tr><th>Cota</th><th>Prêmio</th><th>Comprador</th><th>E-mail</th><th>Pedido</th><th>Data</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table id="winnersTable" hidden><thead><tr><th>Cota</th><th>Pr&ecirc;mio</th><th>Comprador</th><th>E-mail</th><th>Pedido</th><th>Data</th></tr></thead><tbody></tbody></table></div>
     </div>
 
     <div class="card">
       <h2>Sorteio da XRE</h2>
-      <p id="drawHelp" class="warning">O botão será habilitado somente quando todos os números da meta estiverem vendidos e o estado da campanha for “encerrada”. O backend impede sorteios antecipados e grava o resultado em `sorteios/xre` e `ganhadores/xre`.</p>
+      <p id="drawHelp" class="warning">O bot&atilde;o ser&aacute; habilitado somente quando todos os n&uacute;meros da meta estiverem vendidos e o estado da campanha for “encerrada”. O backend impede sorteios antecipados e grava o resultado em `sorteios/xre` e `ganhadores/xre`.</p>
       <div id="roulette" class="roulette" aria-label="Roleta visual do sorteio da XRE"></div>
       <div class="actions"><button id="drawXre" class="danger" disabled>Sortear XRE</button></div>
       <div id="xreResult" class="muted"></div>
@@ -76,7 +76,7 @@
 
     <div class="card">
       <h2>Auditoria das 10.000 cotas</h2>
-      <div class="actions"><button id="loadWinningNumbers" class="secondary">Carregar números reservados para prêmios</button></div>
+      <div class="actions"><button id="loadWinningNumbers" class="secondary">Carregar n&uacute;meros reservados para pr&ecirc;mios</button></div>
       <div id="numbersStatus" class="muted"></div>
       <div id="numbers" class="numbers"></div>
     </div>
@@ -115,14 +115,14 @@
       const eligible = sold >= target && currentState.status === 'encerrada';
       document.getElementById('drawXre').disabled = !eligible;
       document.getElementById('drawHelp').textContent = eligible
-        ? 'A campanha atingiu 100%. O sorteio pode ser executado uma única vez; o resultado ficará registrado para auditoria.'
+        ? 'A campanha atingiu 100%. O sorteio pode ser executado uma &uacute;nica vez; o resultado ficar&aacute; registrado para auditoria.'
         : `Ainda bloqueado: ${sold.toLocaleString('pt-BR')} de ${target.toLocaleString('pt-BR')} vendidos e status “${currentState.status || '—'}”.`;
     }
 
     async function saveConfig() {
       const button = document.getElementById('saveConfig'); button.disabled = true;
-      try { await updateRaffleConfig({ targetSoldNumbers: Number(document.getElementById('targetInput').value), status: document.getElementById('statusInput').value }); await loadState(); showMessage('Configuração salva.', 'success'); }
-      catch (error) { console.error(error); showMessage(error.message || 'Não foi possível salvar.', 'error'); }
+      try { await updateRaffleConfig({ targetSoldNumbers: Number(document.getElementById('targetInput').value), status: document.getElementById('statusInput').value }); await loadState(); showMessage('Configura&ccedil;&atilde;o salva.', 'success'); }
+      catch (error) { console.error(error); showMessage(error.message || 'N&atilde;o foi poss&iacute;vel salvar.', 'error'); }
       finally { button.disabled = false; }
     }
 
@@ -136,7 +136,7 @@
           row.append(cell(formatDate(purchase.paidAt || purchase.criadoEm)), cell(purchase.nome), cell(purchase.email), cell(formatNumbers(purchase.numeros)), cell(formatMoney(purchase.totalCents)), cell(purchase.status)); rows.appendChild(row);
         }
         document.getElementById('purchasesStatus').textContent = `${rows.children.length.toLocaleString('pt-BR')} compras carregadas.`;
-      } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível carregar as compras.', 'error'); }
+      } catch (error) { console.error(error); showMessage(error.message || 'N&atilde;o foi poss&iacute;vel carregar as compras.', 'error'); }
       finally { button.disabled = false; }
     }
 
@@ -147,10 +147,10 @@
         const rows = clearTable('winnersTable');
         for (const winner of result.data?.winners || []) {
           const row = document.createElement('tr');
-          row.append(cell(String(winner.numero).padStart(6, '0')), cell(winner.premioNome || 'Prêmio a definir'), cell(winner.comprador), cell(winner.email), cell(winner.pedidoId), cell(formatDate(winner.confirmadoEm || winner.sorteadoEm))); rows.appendChild(row);
+          row.append(cell(String(winner.numero).padStart(6, '0')), cell(winner.premioNome || 'Pr&ecirc;mio a definir'), cell(winner.comprador), cell(winner.email), cell(winner.pedidoId), cell(formatDate(winner.confirmadoEm || winner.sorteadoEm))); rows.appendChild(row);
         }
         document.getElementById('winnersStatus').textContent = `${rows.children.length.toLocaleString('pt-BR')} ganhadores carregados.`;
-      } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível carregar os ganhadores.', 'error'); }
+      } catch (error) { console.error(error); showMessage(error.message || 'N&atilde;o foi poss&iacute;vel carregar os ganhadores.', 'error'); }
       finally { button.disabled = false; }
     }
 
@@ -160,22 +160,22 @@
         const result = await getWinningNumbers({ pageSize: 500 });
         const container = document.getElementById('numbers'); container.replaceChildren();
         for (const number of result.data?.numbers || []) { const item = document.createElement('div'); item.className = 'number'; item.textContent = String(number).padStart(6, '0'); container.appendChild(item); }
-        document.getElementById('numbersStatus').textContent = `${container.children.length.toLocaleString('pt-BR')} números exibidos nesta página.`;
-      } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível carregar os números.', 'error'); }
+        document.getElementById('numbersStatus').textContent = `${container.children.length.toLocaleString('pt-BR')} n&uacute;meros exibidos nesta p&aacute;gina.`;
+      } catch (error) { console.error(error); showMessage(error.message || 'N&atilde;o foi poss&iacute;vel carregar os n&uacute;meros.', 'error'); }
       finally { button.disabled = false; }
     }
 
     async function drawXre() {
-      if (!window.confirm('Confirmar o sorteio da XRE? Esta operação será registrada e não deve ser repetida.')) return;
+      if (!window.confirm('Confirmar o sorteio da XRE? Esta opera&ccedil;&atilde;o ser&aacute; registrada e n&atilde;o deve ser repetida.')) return;
       const button = document.getElementById('drawXre'); button.disabled = true;
       const roulette = document.getElementById('roulette'); roulette.classList.add('spinning');
       try {
         const result = await drawXreWinner({});
         const winner = result.data?.winner || {};
-        document.getElementById('xreResult').textContent = `XRE: cota ${String(winner.numero || '').padStart(6, '0')} — ${winner.comprador || 'comprador não informado'} — ${winner.email || 'sem e-mail'}.`;
-        showMessage('Sorteio da XRE concluído e registrado.', 'success');
+        document.getElementById('xreResult').textContent = `XRE: cota ${String(winner.numero || '').padStart(6, '0')} — ${winner.comprador || 'comprador n&atilde;o informado'} — ${winner.email || 'sem e-mail'}.`;
+        showMessage('Sorteio da XRE conclu&iacute;do e registrado.', 'success');
         await loadWinners();
-      } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível realizar o sorteio.', 'error'); await loadState(); }
+      } catch (error) { console.error(error); showMessage(error.message || 'N&atilde;o foi poss&iacute;vel realizar o sorteio.', 'error'); await loadState(); }
       finally { roulette.classList.remove('spinning'); button.disabled = true; }
     }
 
@@ -190,14 +190,13 @@
       try {
         const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
         if (!adminCheck.data.isAdmin) {
-          alert('Acesso negado. Esta página é exclusiva para administradores.');
+          alert('Acesso negado. Esta p&aacute;gina &eacute; exclusiva para administradores.');
           window.location.href = 'perfil.html';
           return;
         }
         await loadState();
-      } catch (error) { console.error(error); showMessage('Erro na autenticação administrativa', 'error'); }
+      } catch (error) { console.error(error); showMessage('Erro na autentica&ccedil;&atilde;o administrativa', 'error'); }
     });
   </script>
 </body>
 </html>
-

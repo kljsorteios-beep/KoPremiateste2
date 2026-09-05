@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Criar Conta | Kóôpremios</title>
+    <title>Criar Conta | K&oacute;&ocirc;premios</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -249,7 +249,7 @@
 
     <header class="navbar">
         <div class="container nav-content">
-            <a href="index.html" class="logo">Kóô<span class="text-gold">premios</span></a>
+            <a href="index.html" class="logo">K&oacute;&ocirc;<span class="text-gold">premios</span></a>
             <a href="index.html" class="back-link">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 Voltar ao site
@@ -274,22 +274,22 @@
 
                 <div class="form-row">
                     <div class="form-group" id="group-telefone">
-                        <label for="telefone">Número com DDD</label>
+                        <label for="telefone">N&uacute;mero com DDD</label>
                         <input type="tel" id="telefone" name="telefone" placeholder="(00) 00000-0000" maxlength="15" required>
-                        <span class="error-msg">Telefone inválido.</span>
+                        <span class="error-msg">Telefone inv&aacute;lido.</span>
                     </div>
 
                     <div class="form-group" id="group-cpf">
                         <label for="cpf">CPF</label>
                         <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14" required>
-                        <span class="error-msg">CPF inválido.</span>
+                        <span class="error-msg">CPF inv&aacute;lido.</span>
                     </div>
                 </div>
 
                 <div class="form-group" id="group-email">
                     <label for="email">E-mail</label>
                     <input type="email" id="email" name="email" placeholder="seuemail@exemplo.com" required>
-                    <span class="error-msg">Informe um e-mail válido.</span>
+                    <span class="error-msg">Informe um e-mail v&aacute;lido.</span>
                 </div>
 
                 <div class="form-group" id="group-senha">
@@ -300,15 +300,15 @@
                     </div>
                     <span class="error-msg">A senha deve ter ao menos 6 caracteres.</span>
                 </div>
-                
+
                 <div class="form-group" id="group-dataNascimento">
                     <label for="dataNascimento">Data de Nascimento *</label>
                     <input type="date" id="dataNascimento" name="dataNascimento" required>
                 </div>
-                
+
                 <div class="form-group" id="group-cep">
                     <label for="cep">CEP *</label>
-                    <input type="text" id="cep" name="cep" placeholder="Apenas números" required maxlength="8">
+                    <input type="text" id="cep" name="cep" placeholder="Apenas n&uacute;meros" required maxlength="8">
                 </div>
 
                 <div class="form-group" id="group-logradouro">
@@ -320,7 +320,7 @@
                     <label for="bairro">Bairro *</label>
                     <input type="text" id="bairro" name="bairro" placeholder="Seu bairro" required>
                 </div>
-                
+
                 <div class="form-row" style="grid-template-columns: 2fr 1fr;">
                     <div class="form-group" id="group-cidade">
                         <label for="cidade">Cidade *</label>
@@ -335,13 +335,13 @@
                 <button type="submit" class="btn-submit">Criar Conta</button>
             </form>
 
-            <p class="auth-switch">Já tem conta? <a href="login.html">Entrar</a></p>
+            <p class="auth-switch">J&aacute; tem conta? <a href="login.html">Entrar</a></p>
         </div>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 Kóôpremios. Todos os direitos reservados.</p>
+            <p>&copy; 2026 K&oacute;&ocirc;premios. Todos os direitos reservados.</p>
         </div>
     </footer>
 
@@ -418,11 +418,11 @@
                             document.getElementById('bairro').value = data.bairro || '';
                             document.getElementById('cidade').value = data.localidade || '';
                             document.getElementById('uf').value = data.uf || '';
-                            
+
                             const errorBox = document.getElementById('errorBox');
                             if (errorBox) errorBox.style.display = 'none';
                         } else {
-                            mostrarErro("CEP não encontrado. Verifique o número digitado.");
+                            mostrarErro("CEP n&atilde;o encontrado. Verifique o n&uacute;mero digitado.");
                         }
                     } catch (error) {
                         console.error("Erro ao buscar CEP:", error);
@@ -433,7 +433,7 @@
 
         document.getElementById('cadastroForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const btn = this.querySelector('.btn-submit');
             btn.innerText = "VERIFICANDO...";
             btn.disabled = true;
@@ -451,20 +451,20 @@
             const uf = document.getElementById('uf').value.trim();
 
             if (!nome || !telefone || !cpf || !email || !senha || !dataNascimento || !cep) {
-                mostrarErro("Por favor, preencha todos os campos obrigatórios.");
+                mostrarErro("Por favor, preencha todos os campos obrigat&oacute;rios.");
                 btn.innerText = "CRIAR CONTA";
                 btn.disabled = false;
                 return;
             }
 
             try {
-                // 1. VERIFICAÇÃO DE CPF DUPLICADO
+                // 1. VERIFICA&Ccedil;&atilde;O DE CPF DUPLICADO
                 const cpfNormalizado = cpf.replace(/\D/g, '');
                 const qCpf = query(collection(db, "usuarios"), where("cpfNormalizado", "==", cpfNormalizado));
                 const snapCpf = await getDocs(qCpf);
 
                 if (!snapCpf.empty) {
-                    mostrarErro("Este CPF já está cadastrado em nosso sistema.");
+                    mostrarErro("Este CPF j&aacute; est&aacute; cadastrado em nosso sistema.");
                     btn.innerText = "CRIAR CONTA";
                     btn.disabled = false;
                     return;
@@ -472,7 +472,7 @@
 
                 await setPersistence(auth, browserLocalPersistence);
 
-                // 2. Cria login (o Firebase Auth já impede emails duplicados automaticamente)
+                // 2. Cria login (o Firebase Auth j&aacute; impede emails duplicados automaticamente)
                 const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
                 const user = userCredential.user;
 
@@ -499,9 +499,9 @@
             } catch (error) {
                 console.error("Erro no cadastro:", error);
                 if (error.code === 'auth/email-already-in-use') {
-                    mostrarErro('Este e-mail já está cadastrado. Tente fazer login.');
+                    mostrarErro('Este e-mail j&aacute; est&aacute; cadastrado. Tente fazer login.');
                 } else if (error.code === 'auth/weak-password') {
-                    mostrarErro('A senha deve conter no mínimo 6 caracteres.');
+                    mostrarErro('A senha deve conter no m&iacute;nimo 6 caracteres.');
                 } else {
                     mostrarErro('Ocorreu um erro ao criar a conta. Tente novamente.');
                 }
@@ -512,4 +512,3 @@
     </script>
 </body>
 </html>
-
