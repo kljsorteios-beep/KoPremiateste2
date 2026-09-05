@@ -91,6 +91,19 @@ function requireAdmin(request) {
     throw new HttpsError('permission-denied', 'Acesso restrito ao administrador.');
   }
   return auth;
+} // <--- A função requireAdmin termina aqui com essa chave
+
+// Agora, FORA dela, você começa a nova função:
+exports.checkAdminStatus = onCall({ region: 'southamerica-east1' }, async (request) => {
+  return {
+    isAdmin: isAdmin(request),
+  };
+});
+  const auth = requireAuth(request);
+  if (!isAdmin(request)) {
+    throw new HttpsError('permission-denied', 'Acesso restrito ao administrador.');
+  }
+  return auth;
 }
 
 function normalizeInteger(value, fallback) {
