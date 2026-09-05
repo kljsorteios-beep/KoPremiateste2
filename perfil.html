@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minha Conta | KÃ³Ã²premios</title>
+    <title>Minha Conta | Kóôpremios</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -103,7 +103,6 @@
             padding-bottom: 10px;
         }
 
-        /* Grid corrigido para empilhar direitinho no celular e organizar no PC */
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -167,7 +166,6 @@
             padding: 20px 0;
         }
 
-        /* Ajustes especÃ­ficos para celulares pequenos */
         @media (max-width: 650px) {
             .info-grid {
                 grid-template-columns: 1fr;
@@ -194,7 +192,7 @@
 
     <header class="navbar">
         <div class="container nav-content">
-            <a href="index.html" class="logo">KÃ³Ã²<span class="text-gold">premios</span></a>
+            <a href="index.html" class="logo">Kóô<span class="text-gold">premios</span></a>
             <a href="index.html" class="back-link">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 Voltar ao site
@@ -230,30 +228,30 @@
             <div class="profile-card" style="border-color: var(--gold-light); background: rgba(212, 175, 55, 0.05);">
                 <h2 style="color: var(--gold-light);">Painel do Administrador</h2>
                 <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">
-                    Acesso exclusivo para gestÃ£o de sorteios e auditoria.
+                    Acesso exclusivo para gestão de sorteios e auditoria.
                 </p>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <a href="roleta.html" style="background: var(--primary); color: #081021; padding: 12px 20px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; transition: var(--transition); text-align: center; flex: 1; min-width: 200px;">
-                        ðŸŽ¡ Abrir Roleta de Sorteios
+                        🎡 Abrir Roleta de Sorteios
                     </a>
                     <a href="admin.html" style="background: var(--surface-hover); color: var(--text-color); padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: var(--transition); text-align: center; flex: 1; min-width: 200px; border: 1px solid rgba(212, 175, 55, 0.3);">
-                        âš™ï¸ GestÃ£o Geral
+                        ⚙️ Gestão Geral
                     </a>
                 </div>
             </div>
         </div>
 
         <div class="orders-card">
-            <h2>Meus TÃ­tulos (Cotas)</h2>
+            <h2>Meus Títulos (Cotas)</h2>
             <div id="listaCotas">
-                <p class="empty-text">VocÃª ainda nÃ£o possui cotas compradas.</p>
+                <p class="empty-text">Você ainda não possui cotas compradas.</p>
             </div>
         </div>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 KÃ³Ã²premios. Todos os direitos reservados.</p>
+            <p>&copy; 2026 Kóôpremios. Todos os direitos reservados.</p>
         </div>
     </footer>
 
@@ -266,7 +264,6 @@
                 document.getElementById('userEmail').innerText = user.email;
 
                 try {
-                    // --- CHECK ADMIN STATUS ---
                     const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
                     if (adminCheck.data.isAdmin) {
                         document.getElementById('admin-section').style.display = 'block';
@@ -285,22 +282,21 @@
 
                     if (userDoc && userDoc.exists()) {
                         const dados = userDoc.data();
-                        document.getElementById('userName').innerText = dados.nome || dados.name || "NÃ£o informado";
-                        document.getElementById('userCpf').innerText = dados.cpf || "NÃ£o informado";
-                        document.getElementById('userPhone').innerText = dados.telefone || dados.phone || "NÃ£o informado";
+                        document.getElementById('userName').innerText = dados.nome || dados.name || "Não informado";
+                        document.getElementById('userCpf').innerText = dados.cpf || "Não informado";
+                        document.getElementById('userPhone').innerText = dados.telefone || dados.phone || "Não informado";
                     } else {
-                        document.getElementById('userName').innerText = "NÃ£o cadastrado";
-                        document.getElementById('userCpf').innerText = "NÃ£o cadastrado";
-                        document.getElementById('userPhone').innerText = "NÃ£o cadastrado";
+                        document.getElementById('userName').innerText = "Não cadastrado";
+                        document.getElementById('userCpf').innerText = "Não cadastrado";
+                        document.getElementById('userPhone').innerText = "Não cadastrado";
                     }
 
-                    // --- BUSCAR AS COTAS (TÃTULOS) DO USUÃRIO ---
                     const listaCotasDiv = document.getElementById('listaCotas');
                     const qCotas = query(collection(db, "compras"), where("uid", "==", user.uid));
                     const querySnapshotCotas = await getDocs(qCotas);
 
                     if (!querySnapshotCotas.empty) {
-                        listaCotasDiv.innerHTML = ""; // Limpa a mensagem padrÃ£o
+                        listaCotasDiv.innerHTML = ""; 
                         
                         querySnapshotCotas.forEach((docCota) => {
                             const compra = docCota.data();
@@ -315,7 +311,7 @@
                             const numbers = document.createElement('p');
                             numbers.style.cssText = 'font-size: 0.85rem; color: #ccc; margin-top: 4px;';
                             const formattedNumbers = (compra.numeros || []).map((number) => String(number).padStart(6, '0'));
-                            numbers.textContent = `NÃºmeros: ${formattedNumbers.join(', ') || 'Nenhum'}`;
+                            numbers.textContent = `Números: ${formattedNumbers.join(', ') || 'Nenhum'}`;
 
                             const details = document.createElement('div');
                             details.append(title, numbers);
@@ -352,4 +348,3 @@
     </script>
 </body>
 </html>
-
