@@ -1,4 +1,4 @@
-﻿import {
+import {
   auth,
   httpsCallable,
   functions,
@@ -71,7 +71,7 @@ function setText(id, text) {
 function showMessage(message, type = 'info') {
   const element = document.getElementById('purchase-message');
   if (!element) return;
-  element.textContent = message;
+  element.innerHTML = message;
   element.dataset.type = type;
   element.hidden = false;
 }
@@ -95,7 +95,7 @@ function updateProgress(data) {
     participateButton.disabled = closed;
     participateButton.dataset.closed = closed ? 'true' : 'false';
   }
-  if (closed) showMessage('As vendas foram encerradas. Aguarde as informações do sorteio.', 'warning');
+  if (closed) showMessage('As vendas foram encerradas. Aguarde as informa&ccedil;&otilde;es do sorteio.', 'warning');
 }
 
 async function refreshPublicState() {
@@ -123,13 +123,13 @@ function showOrderPanel(order) {
     qrImage.src = order.qrCodeImageUrl || '';
   }
   startCountdown(order.expiresAt);
-  showMessage('Reserva criada. Pague o Pix antes do prazo para confirmar seus números.', 'success');
+  showMessage('Reserva criada. Pague o Pix antes do prazo para confirmar seus n&uacute;meros.', 'success');
   panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 async function confirmPayment() {
   if (!state.currentOrder) return;
-  
+
   const btn = document.getElementById('btn-confirm-payment');
   if (btn) {
     btn.disabled = true;
@@ -141,13 +141,13 @@ async function confirmPayment() {
     const result = response.data;
 
     if (result.status === 'pago') {
-      showMessage('Pagamento confirmado! Seus números já estão disponíveis no perfil.', 'success');
+      showMessage('Pagamento confirmado! Seus n&uacute;meros j&aacute; est&atilde;o dispon&iacute;veis no perfil.', 'success');
       // Opcional: recarregar a página ou esconder o painel
       setTimeout(() => {
         window.location.href = 'perfil.html';
       }, 2000);
     } else {
-      showMessage(result.message || 'Pagamento ainda não identificado.', 'warning');
+      showMessage(result.message || 'Pagamento ainda n&atilde;o identificado.', 'warning');
     }
   } catch (error) {
     console.error('Erro ao confirmar pagamento:', error);
@@ -170,7 +170,7 @@ function startCountdown(expiresAt) {
     setText('pix-countdown', `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
     if (remaining <= 0) {
       clearInterval(state.countdownTimer);
-      showMessage('O prazo da reserva terminou. Se o pagamento não for confirmado, os números voltarão a ficar disponíveis.', 'warning');
+      showMessage('O prazo da reserva terminou. Se o pagamento n&atilde;o for confirmado, os n&uacute;meros voltar&atilde;o a ficar dispon&iacute;veis.', 'warning');
     }
   };
   tick();
@@ -195,7 +195,7 @@ async function handlePurchase() {
   const input = document.getElementById('input-qty');
   const quantity = Number(input?.value || 0);
   if (!Number.isInteger(quantity) || quantity < 1) {
-    showMessage('Informe uma quantidade válida de números.', 'error');
+    showMessage('Informe uma quantidade v&aacute;lida de n&uacute;meros.', 'error');
     return;
   }
 
@@ -217,7 +217,7 @@ async function handlePurchase() {
     await refreshPublicState();
   } catch (error) {
     console.error('Erro ao criar pedido:', error);
-    const message = error?.message || 'Não foi possível criar a reserva agora.';
+    const message = error?.message || 'N&atilde;o foi poss&iacute;vel criar a reserva agora.';
     showMessage(message.replace('INTERNAL:', '').trim(), 'error');
   } finally {
     if (button && !state.currentOrder) button.disabled = false;
