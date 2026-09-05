@@ -1136,8 +1136,104 @@
 
     <script type="module" src="firebase-client.js"></script>
     <script type="module" src="compra.js"></script>
+<script type="module">
+    import { functions, httpsCallable } from './firebase-client.js';
+
+    async function handleManualConfirm() {
+        const btn = document.getElementById('btn-confirm-payment');
+        const orderIdElement = document.getElementById('pix-order-id');
+        
+        if (!btn || !orderIdElement) return;
+        
+        const orderId = orderIdElement.textContent.trim();
+        if (!orderId) {
+            alert('Erro: ID do pedido não encontrado.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'VERIFICANDO...';
+
+        try {
+            const syncPaymentStatus = httpsCallable(functions, 'syncPaymentStatus');
+            const response = await syncPaymentStatus({ orderId: orderId });
+            const result = response.data;
+
+            if (result.status === 'pago') {
+                alert('Pagamento confirmado! Seus números já estão no perfil.');
+                window.location.href = 'perfil.html';
+            } else {
+                alert(result.message || 'Pagamento ainda não identificado.');
+            }
+        } catch (error) {
+            console.error('Erro ao confirmar:', error);
+            alert('Erro ao conectar com o servidor. Tente novamente.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'CONFIRMAR MEU PAGAMENTO';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('btn-confirm-payment');
+        if (btn) {
+            btn.addEventListener('click', handleManualConfirm);
+        }
+    });
+</script>
+<script type="module">
+    import { functions, httpsCallable } from './firebase-client.js';
+
+    async function handleManualConfirm() {
+        const btn = document.getElementById('btn-confirm-payment');
+        const orderIdElement = document.getElementById('pix-order-id');
+        
+        if (!btn || !orderIdElement) return;
+        
+        const orderId = orderIdElement.textContent.trim();
+        if (!orderId || orderId === ' ') {
+            alert('Erro: ID do pedido não encontrado. Por favor, gere um novo PIX.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'VERIFICANDO...';
+
+        try {
+            const syncPaymentStatus = httpsCallable(functions, 'syncPaymentStatus');
+            const response = await syncPaymentStatus({ orderId: orderId });
+            const result = response.data;
+
+            if (result.status === 'pago') {
+                alert('Pagamento confirmado! Seus números já estão no perfil.');
+                window.location.href = 'perfil.html';
+            } else {
+                alert(result.message || 'Pagamento ainda não identificado.');
+            }
+        } catch (error) {
+            console.error('Erro ao confirmar:', error);
+            alert('Erro ao conectar com o servidor. Tente novamente.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'CONFIRMAR MEU PAGAMENTO';
+        }
+    }
+
+    if (document.getElementById('btn-confirm-payment')) {
+        document.getElementById('btn-confirm-payment').addEventListener('click', handleManualConfirm);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('btn-confirm-payment');
+        if (btn) {
+            btn.addEventListener('click', handleManualConfirm);
+        }
+    });
+</script>
 </body>
 </html>
+
+
 
 
 
