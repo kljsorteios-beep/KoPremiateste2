@@ -163,10 +163,9 @@
         </div>
     </footer>
 
-    <script type="module">
-        import { auth, functions, httpsCallable } from './firebase-client.js';
+     <script type="module">
+        import { auth, functions, httpsCallable, db } from './firebase-client.js';
         import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { db } from './firebase-client.js';
         import { collection, query, where, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         let currentMode = 'xre';
@@ -179,7 +178,6 @@
             document.getElementById('mode-adicional').classList.toggle('active', mode === 'adicional');
         };
 
-        // Live count of winning quotes
         onSnapshot(query(collection(db, "ganhadores"), where("categoria", "==", "adicional")), (snapshot) => {
             const count = snapshot.size;
             document.getElementById('stats-display').innerHTML = `Cotas Premiadas Vendidas: <span>${count}</span> / 10.000`;
@@ -204,7 +202,6 @@
                     winnerData = res.data.winner;
                 }
 
-                // Animation logic: spins 5-10 times + random offset
                 const extraSpins = Math.floor(Math.random() * 5) + 5;
                 const randomDegree = Math.floor(Math.random() * 360);
                 rotation += (extraSpins * 360) + randomDegree;
@@ -218,6 +215,7 @@
                 }, 4000);
 
             } catch (error) {
+                console.error("Erro no sorteio:", error);
                 alert("Erro ao realizar sorteio: " + error.message);
                 isSpinning = false;
                 btn.disabled = false;
@@ -242,7 +240,6 @@
 
         window.spinWheel = spinWheel;
 
-        // Auth protection
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = "login.html";
@@ -251,11 +248,13 @@
             try {
                 const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
                 if (!adminCheck.data.isAdmin) {
-                    alert("Acesso negado. Esta página é exclusiva para administradores.");
+                    alert("Acesso negado. Esta página é exclusiva para administradores.")
                     window.location.href = "perfil.html";
                 }
             } catch (e) {
-                window.location.href = "perfil.html";
+                console.error("Erro na verificação de admin:", e);
+                // Removi o redirecionamento automático para evitar o loop "abre e fecha"
+                // caso haja um erro temporário de rede
             }
         });
     </script>
