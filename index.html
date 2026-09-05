@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kóòpremios | Rifa Premium</title>
+    <title>KÃ³Ã²premios | Rifa Premium</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <style>
         /* ==============================
-            Variáveis e Reset
+            VariÃ¡veis e Reset
             ============================== */
         :root {
             --gold-dark: #8a631c;
@@ -866,7 +866,7 @@
     <header class="navbar">
         <div class="container nav-content">
             <div class="logo">
-                Kóò<span class="text-gold">premios</span>
+                KÃ³Ã²<span class="text-gold">premios</span>
             </div>
             <div class="nav-actions" id="authNav" aria-live="polite">
                 <a href="login.html" class="btn-login">Entrar</a>
@@ -879,7 +879,7 @@
         <section class="hero container">
             <h1>Concorra a uma <span class="text-gold">XRE 190 2026</span>!</h1>
             <p class="subtitle">Sorteio autorizado pela Loteria Federal. Apenas <strong class="text-gold">R$ 0,50</strong> a cota!</p>
-            <p class="subtitle" style="margin-top: -18px; font-size: 0.88rem;">São <strong class="text-gold">10 Mil cotas premiadas</strong>, participe e boa sorte!</p>
+            <p class="subtitle" style="margin-top: -18px; font-size: 0.88rem;">SÃ£o <strong class="text-gold">10 Mil cotas premiadas</strong>, participe e boa sorte!</p>
 
             <a href="#cotasSection" class="prize-image-container" aria-label="Ver fotos e comprar cotas">
                 <img src="IMG_1737.jpg" alt="Honda XRE 190 2026 em Destaque">
@@ -900,7 +900,7 @@
 
             <div class="progress-wrapper">
                 <div class="progress-stats">
-                    <span>Cotômetro</span>
+                    <span>CotÃ´metro</span>
                     <span class="text-gold" id="progress-text">0% Vendido</span>
                 </div>
                 <div class="progress-bar">
@@ -949,9 +949,9 @@
                     </div>
                 </div>
 
-                <!-- SEÇÃO DE COTAS COM O LAYOUT DA SUA FOTO E AS CORES DO SEU SITE -->
+                <!-- SEÃ‡ÃƒO DE COTAS COM O LAYOUT DA SUA FOTO E AS CORES DO SEU SITE -->
                 <div class="cotas-wrapper reveal">
-                    <p class="cotas-subtitle">Quanto mais títulos, mais chances de ganhar!</p>
+                    <p class="cotas-subtitle">Quanto mais tÃ­tulos, mais chances de ganhar!</p>
 
                     <div class="cotas-grid">
                         <div class="cota-card" onclick="selectCota(50, this)">
@@ -981,13 +981,13 @@
 
                     <div class="cotas-checkout-row">
                         <div class="qty-selector">
-                            <button type="button" class="qty-btn" onclick="changeQty(-10)">−</button>
+                            <button type="button" class="qty-btn" onclick="changeQty(-10)">âˆ’</button>
                             <input type="number" id="input-qty" value="100" min="1" oninput="updatePriceFromInput()">
                             <button type="button" class="qty-btn" onclick="changeQty(10)">+</button>
                         </div>
 
                         <button type="button" class="btn-participar" id="participate-button">
-                            <span class="btn-check">✓</span>
+                            <span class="btn-check">âœ“</span>
                             <div class="btn-text">
                                 <span>Quero participar</span>
                                 <strong id="display-price">R$ 50,00</strong>
@@ -1000,14 +1000,16 @@
                     <div id="pix-order-panel" class="pix-order-panel" hidden>
                         <h3>Pagamento via Pix</h3>
                         <p class="pix-order-summary">Pedido <strong id="pix-order-id"></strong><br>Valor: <strong id="pix-order-total"></strong></p>
-                        <div class="pix-countdown" id="pix-countdown">10:00</div>
+                        <div class="pix-countdown" id="pix-countdown">10:00
+</div>
                         <img id="pix-qr-image" class="pix-qr-image" alt="QR Code Pix" hidden>
                         <div class="pix-copy-row">
                             <input id="pix-copy-paste" type="text" readonly aria-label="Pix copia e cola">
                             <button type="button" id="copy-pix-button">Copiar</button>
                         </div>
-                        <p class="pix-order-summary" style="margin-top: 12px;">Números reservados: <strong id="pix-order-numbers"></strong></p>
-                    </div>
+                        <p class="pix-order-summary" style="margin-top: 12px;">NÃºmeros reservados: <strong id="pix-order-numbers"></strong></p>
+                                            <button type="button" id="btn-confirm-payment" class="btn-submit" style="margin-top: 20px; cursor: pointer; width: 100%; padding: 12px; border-radius: 8px; border: none; background: var(--gold-gradient); color: #000; font-weight: 900; text-transform: uppercase;">CONFIRMAR MEU PAGAMENTO</button>
+</div>
                 </div>
 
             </div>
@@ -1017,9 +1019,9 @@
     <footer>
         <div class="container">
             <div class="logo" style="margin-bottom: 20px;">
-                Kóò<span class="text-gold">premios</span>
+                KÃ³Ã²<span class="text-gold">premios</span>
             </div>
-            <p>&copy; 2026 Kóòpremios. Todos os direitos reservados.</p>
+            <p>&copy; 2026 KÃ³Ã²premios. Todos os direitos reservados.</p>
         </div>
     </footer>
 
@@ -1034,7 +1036,7 @@
             <div class="lightbox-image-wrap">
                 <img id="lightbox-img" src="" alt="Foto da moto em tela cheia">
             </div>
-            <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" onclick="changeLightbox(1)" aria-label="Próxima foto">
+            <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" onclick="changeLightbox(1)" aria-label="PrÃ³xima foto">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
             </button>
             <div class="lightbox-counter"><span id="lightbox-current">1</span> / <span id="lightbox-total">5</span></div>
@@ -1136,3 +1138,6 @@
     <script type="module" src="compra.js"></script>
 </body>
 </html>
+
+
+

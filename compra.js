@@ -1,4 +1,4 @@
-import {
+﻿import {
   auth,
   httpsCallable,
   functions,
@@ -8,6 +8,7 @@ import {
 
 const getPublicRaffleState = httpsCallable(functions, 'getPublicRaffleState');
 const createPixOrder = httpsCallable(functions, 'createPixOrder');
+const syncPaymentStatus = httpsCallable(functions, 'syncPaymentStatus');
 
 const state = {
   currentOrder: null,
@@ -126,6 +127,39 @@ function showOrderPanel(order) {
   panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+async function confirmPayment() {
+  if (!state.currentOrder) return;
+  
+  const btn = document.getElementById('btn-confirm-payment');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'VERIFICANDO...';
+  }
+
+  try {
+    const response = await syncPaymentStatus({ orderId: state.currentOrder.orderId });
+    const result = response.data;
+
+    if (result.status === 'pago') {
+      showMessage('Pagamento confirmado! Seus números já estão disponíveis no perfil.', 'success');
+      // Opcional: recarregar a página ou esconder o painel
+      setTimeout(() => {
+        window.location.href = 'perfil.html';
+      }, 2000);
+    } else {
+      showMessage(result.message || 'Pagamento ainda não identificado.', 'warning');
+    }
+  } catch (error) {
+    console.error('Erro ao confirmar pagamento:', error);
+    showMessage(error.message || 'Erro ao verificar pagamento.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'CONFIRMAR MEU PAGAMENTO';
+    }
+  }
+}
+
 function startCountdown(expiresAt) {
   if (state.countdownTimer) clearInterval(state.countdownTimer);
   const end = new Date(expiresAt).getTime();
@@ -220,6 +254,7 @@ window.selectCota = selectCota;
 window.changeQty = changeQty;
 window.copyPixCode = copyPixCode;
 window.handlePurchase = handlePurchase;
+window.confirmPayment = confirmPayment;
 
 onAuthStateChanged(auth, (user) => {
   renderAuthNav(user);
