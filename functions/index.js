@@ -208,7 +208,78 @@ exports.mercadoPagoWebhook = onRequest({
   region: 'southamerica-east1',
   secrets: [MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET]
 }, async (req, res) => {
-  res.status(200).send('OK');
+  try {
+    const event = req.body;
+    if (!event || !event.action) {
+      return res.status(200).send('OK');
+    }
+
+    if (event.type !== 'payment') {
+      return res.status(200).send('OK');
+    }
+
+    const paymentId = event.data?.id;
+    if (!paymentId) return res.status(200).send('OK');
+
+    let rawToken = MERCADOPAGO_ACCESS_TOKEN.value();
+    let token = String(rawToken || "").trim().replace(/^["\']|["\']$/g, '');
+
+    const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!mpResponse.ok) {
+      logger.error('Erro ao consultar pagamento no MP', { paymentId });
+      return res.status(200).send('OK');
+    }
+
+    const paymentData = await mpResponse.json();
+    if (paymentData.status !== 'approved') {
+      return res.status(200).send('OK');
+    }
+
+    const ordersSnapshot = await db.collection('pedidos').where('mpPaymentId', '==', paymentId).get();
+    if (ordersSnapshot.empty) {
+      logger.warn('Pagamento aprovado mas pedido nao encontrado', { paymentId });
+      return res.status(200).send('OK');
+    }
+
+    const orderDoc = ordersSnapshot.docs[0];
+    const orderData = orderDoc.data();
+    const orderId = orderDoc.id;
+
+    if (orderData.status === 'pago') {
+      return res.status(200).send('OK');
+    }
+
+    await db.runTransaction(async (transaction) => {
+      transaction.update(db.doc(`pedidos/${orderId}`), {
+        status: 'pago',
+        paidAt: FieldValue.serverTimestamp()
+      });
+
+      transaction.set(db.doc(`compras/${orderId}`), {
+        ...orderData,
+        status: 'pago',
+        paidAt: FieldValue.serverTimestamp(),
+        confirmadoEm: FieldValue.serverTimestamp()
+      });
+
+      const publicRef = db.doc('publico/rifa');
+      const publicSnap = await transaction.get(publicRef);
+      const currentSold = publicSnap.exists ? (Number(publicSnap.data().soldNumbers) || 0) : 0;
+      transaction.set(publicRef, {
+        soldNumbers: currentSold + (orderData.numeros?.length || 0)
+      }, { merge: true });
+    });
+
+    logger.info('Compra processada com sucesso', { orderId, paymentId });
+    res.status(200).send('OK');
+
+  } catch (e) {
+    logger.error('Erro critico no webhook', e);
+    res.status(500).send('Erro Interno');
+  }
 });
 
 exports.drawXreWinner = onCall({ region: 'southamerica-east1' }, async (request) => {
@@ -223,8 +294,24 @@ exports.drawXreWinner = onCall({ region: 'southamerica-east1' }, async (request)
 exports.getRandomBoughtWinningQuote = onCall({ region: 'southamerica-east1' }, async (request) => {
   requireAdmin(request);
   try {
-    return { status: 'concluido', winner: { numero: 654321, comprador: 'Sorteado Adicional', email: 'adicional@email.com' } };
+    const snapshot = await db.collection('ganhadores').where('categoria', '==', 'adicional').get();
+    if (snapshot.empty) {
+      throw new HttpsError('not-found', 'Nenhum ganhador adicional encontrado no banco de dados.');
+    }
+    const docs = snapshot.docs;
+    const randomDoc = docs[Math.floor(Math.random() * docs.length)];
+    const data = randomDoc.data();
+    return { 
+      status: 'concluido', 
+      winner: { 
+        numero: data.numero, 
+        comprador: data.comprador || data.nome, 
+        email: data.email 
+      } 
+    };
   } catch (e) {
+    logger.error("Erro getRandomBoughtWinningQuote", e);
+    if (e instanceof HttpsError) throw e;
     throw new HttpsError('internal', e.message);
   }
 });
