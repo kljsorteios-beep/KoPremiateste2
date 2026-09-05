@@ -94,7 +94,7 @@ function updateProgress(data) {
     participateButton.disabled = closed;
     participateButton.dataset.closed = closed ? 'true' : 'false';
   }
-  if (closed) showMessage('As vendas foram encerradas. Aguarde as informações do sorteio
+  if (closed) showMessage('As vendas foram encerradas. Aguarde as informações do sorteio.', 'warning');
 }
 
 async function refreshPublicState() {
