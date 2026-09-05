@@ -103,7 +103,6 @@
             padding-bottom: 10px;
         }
 
-        /* Grid corrigido para empilhar direitinho no celular e organizar no PC */
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -167,7 +166,6 @@
             padding: 20px 0;
         }
 
-        /* Ajustes específicos para celulares pequenos */
         @media (max-width: 650px) {
             .info-grid {
                 grid-template-columns: 1fr;
@@ -225,9 +223,6 @@
             </div>
             <button class="btn-logout" onclick="fazerLogout()">Sair da Conta</button>
         </div>
-
-        <div id="admin-section" style="display: none;">
-            <div class="profile-card" style="border-color: var(--gold-light); background: rgba(212, 175, 55, 0.05);">
                 <h2 style="color: var(--gold-light);">Painel do Administrador</h2>
                 <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">
                     Acesso exclusivo para gestão de sorteios e auditoria.
@@ -260,6 +255,11 @@
     <script type="module">
         import { auth, db, onAuthStateChanged, signOut } from './firebase-client.js';
         import { doc, getDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        // IMPORTAÇÕES ADICIONADAS PARA RESOLVER O ERRO:
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
+
+        // INICIALIZAÇÃO DAS FUNCTIONS:
+        const functions = getFunctions();
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -267,6 +267,7 @@
 
                 try {
                     // --- CHECK ADMIN STATUS ---
+                    // Agora o httpsCallable e functions estão definidos!
                     const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
                     if (adminCheck.data.isAdmin) {
                         document.getElementById('admin-section').style.display = 'block';
@@ -300,14 +301,14 @@
                     const querySnapshotCotas = await getDocs(qCotas);
 
                     if (!querySnapshotCotas.empty) {
-                        listaCotasDiv.innerHTML = ""; // Limpa a mensagem padrão
-                        
+                        listaCotasDiv.innerHTML = "";
+
                         querySnapshotCotas.forEach((docCota) => {
                             const compra = docCota.data();
-                            
+
                             const card = document.createElement('div');
                             card.style.cssText = "background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(212,175,55,0.2);";
-                            
+
                             const title = document.createElement('h3');
                             title.style.cssText = 'color:var(--primary); font-size: 1rem;';
                             title.textContent = compra.nomeRifa || 'Sorteio';
