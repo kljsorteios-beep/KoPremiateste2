@@ -186,7 +186,7 @@ async function handlePurchase() {
     const message = error?.message || 'Não foi possível criar a reserva agora.';
     showMessage(message.replace('INTERNAL:', '').trim(), 'error');
   } finally {
-    if (but
+    if (button && !state.currentOrder) button.disabled = false;
   }
 }
 
