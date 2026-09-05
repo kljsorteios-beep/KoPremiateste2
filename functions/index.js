@@ -7,16 +7,13 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 
-// Inicializa o Firebase Admin
 initializeApp();
 const db = getFirestore();
 
-// --- SEGREDOS (Secrets) ---
 const MERCADOPAGO_ACCESS_TOKEN = defineSecret('MERCADOPAGO_ACCESS_TOKEN');
 const MERCADOPAGO_WEBHOOK_SECRET = defineSecret('MERCADOPAGO_WEBHOOK_SECRET');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
-// --- CONFIGURAÇÕES PADRÃO ---
 const TOTAL_NUMBERS_DEFAULT = 150000;
 const WINNING_NUMBERS_DEFAULT = 10000;
 const ADDITIONAL_PRIZE_POOL_CENTS_DEFAULT = 1000000;
@@ -28,8 +25,6 @@ const MAX_NUMBERS_PER_ORDER = 1000;
 const raffleConfigRef = db.doc('configuracoes/rifa');
 const raffleStateRef = db.doc('estado/rifa');
 const publicStateRef = db.doc('publico/rifa');
-
-// --- FUNÇÕES AUXILIARES ---
 
 function isAdmin(request) {
   const uid = request.auth?.uid;
@@ -62,8 +57,6 @@ function getConfigDefaults() {
 function formatTicketNumber(value) {
   return String(value).padStart(6, '0');
 }
-
-// --- FUNÇÕES EXPORTADAS (API do Site) ---
 
 exports.checkAdminStatus = onCall({ region: 'southamerica-east1' }, async (request) => {
   try {
@@ -121,12 +114,16 @@ exports.createPixOrder = onCall({
   const userEmail = user.token.email;
 
   try {
-    // 1. Selecionar números aleatórios disponíveis
+    let rawToken = MERCADOPAGO_ACCESS_TOKEN.value();
+    let token = String(rawToken || "").trim().replace(/^["\']|["\']$/g, '');
+    const tokenLength = token.length;
+
+    if (!token || tokenLength < 10) {
+      throw new HttpsError('internal', `ERRO: Token vazio ou incompleto (Tamanho: ${tokenLength})`);
+    }
+
     const reservedNumbers = [];
     let attempts = 0;
-    
-    // Buscamos números já vendidos para evitar duplicatas
-    // Nota: Para escala massiva, usaríamos um índice de números disponíveis
     const soldSnapshot = await db.collection('compras').select('numeros').get();
     const soldNumbersSet = new Set();
     soldSnapshot.forEach(doc => {
@@ -147,12 +144,12 @@ exports.createPixOrder = onCall({
       throw new HttpsError('unavailable', 'Não foram encontrados números disponíveis suficientes.');
     }
 
-    // 2. Integrar com Mercado Pago para criar o pagamento real
     const totalCents = quantity * PRICE_PER_NUMBER_CENTS_DEFAULT;
+    
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN.value()}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -166,7 +163,8 @@ exports.createPixOrder = onCall({
     if (!mpResponse.ok) {
       const errorData = await mpResponse.json();
       logger.error("Erro MP API", errorData);
-      throw new HttpsError('internal', 'Erro ao gerar PIX no Mercado Pago');
+      const detailedError = errorData.message || "Erro desconhecido no Mercado Pago";
+      throw new HttpsError('internal', `Mercado Pago: ${detailedError} (Token Len: ${tokenLength})`);
     }
 
     const mpData = await mpResponse.json();
@@ -175,7 +173,6 @@ exports.createPixOrder = onCall({
 
     if (!pixCode) throw new HttpsError('internal', 'Mercado Pago não retornou o código PIX');
 
-    // 3. Salvar pedido no Firestore
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + RESERVATION_MINUTES_DEFAULT);
 
