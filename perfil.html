@@ -253,24 +253,27 @@
     </footer>
 
     <script type="module">
-        import { app, auth, db, onAuthStateChanged, signOut } from './firebase-client.js';
+        import { auth, db, onAuthStateChanged, signOut } from './firebase-client.js';
         import { doc, getDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-        // IMPORTAÇÕES ADICIONADAS PARA RESOLVER O ERRO:
+        // CORREÇÃO 1: Importando as funções necessárias
         import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
 
-        // INICIALIZAÇÃO DAS FUNCTIONS:
-       const functions = getFunctions(app, 'southamerica-east1');
+        const functions = getFunctions();
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                document.getElementById('userEmail').innerText = user.email;
+                const emailEl = document.getElementById('userEmail');
+                if (emailEl) emailEl.innerText = user.email;
 
                 try {
                     // --- CHECK ADMIN STATUS ---
-                    // Agora o httpsCallable e functions estão definidos!
+                    // Agora com a importação correta, isso vai funcionar!
                     const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
-                    if (adminCheck.data.isAdmin) {
-                        document.getElementById('admin-section').style.display = 'block';
+                    const adminSection = document.getElementById('admin-section');
+
+                    // CORREÇÃO 2: Verificando se o elemento existe antes de mudar o estilo (evita o erro de 'style')
+                    if (adminCheck.data && adminCheck.data.isAdmin && adminSection) {
+                        adminSection.style.display = 'block';
                     }
 
                     const userDocRef = doc(db, "usuarios", user.uid);
@@ -286,51 +289,59 @@
 
                     if (userDoc && userDoc.exists()) {
                         const dados = userDoc.data();
-                        document.getElementById('userName').innerText = dados.nome || dados.name || "Não informado";
-                        document.getElementById('userCpf').innerText = dados.cpf || "Não informado";
-                        document.getElementById('userPhone').innerText = dados.telefone || dados.phone || "Não informado";
+                        const nameEl = document.getElementById('userName');
+                        const cpfEl = document.getElementById('userCpf');
+                        const phoneEl = document.getElementById('userPhone');
+
+                        if (nameEl) nameEl.innerText = dados.nome || dados.name || "Não informado";
+                        if (cpfEl) cpfEl.innerText = dados.cpf || "Não informado";
+                        if (phoneEl) phoneEl.innerText = dados.telefone || dados.phone || "Não informado";
                     } else {
-                        document.getElementById('userName').innerText = "Não cadastrado";
-                        document.getElementById('userCpf').innerText = "Não cadastrado";
-                        document.getElementById('userPhone').innerText = "Não cadastrado";
+                        const nameEl = document.getElementById('userName');
+                        const cpfEl = document.getElementById('userCpf');
+                        const phoneEl = document.getElementById('userPhone');
+                        if (nameEl) nameEl.innerText = "Não cadastrado";
+                        if (cpfEl) cpfEl.innerText = "Não cadastrado";
+                        if (phoneEl) phoneEl.innerText = "Não cadastrado";
                     }
 
                     // --- BUSCAR AS COTAS (TÍTULOS) DO USUÁRIO ---
                     const listaCotasDiv = document.getElementById('listaCotas');
-                    const qCotas = query(collection(db, "compras"), where("uid", "==", user.uid));
-                    const querySnapshotCotas = await getDocs(qCotas);
+                    if (listaCotasDiv) {
+                        const qCotas = query(collection(db, "compras"), where("uid", "==", user.uid));
+                        const querySnapshotCotas = await getDocs(qCotas);
 
-                    if (!querySnapshotCotas.empty) {
-                        listaCotasDiv.innerHTML = "";
+                        if (!querySnapshotCotas.empty) {
+                            listaCotasDiv.innerHTML = "";
 
-                        querySnapshotCotas.forEach((docCota) => {
-                            const compra = docCota.data();
+                            querySnapshotCotas.forEach((docCota) => {
+                                const compra = docCota.data();
+                                const card = document.createElement('div');
+                                card.style.cssText = "background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(212,175,55,0.2);";
 
-                            const card = document.createElement('div');
-                            card.style.cssText = "background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(212,175,55,0.2);";
+                                const title = document.createElement('h3');
+                                title.style.cssText = 'color:var(--primary); font-size: 1rem;';
+                                title.textContent = compra.nomeRifa || 'Sorteio';
 
-                            const title = document.createElement('h3');
-                            title.style.cssText = 'color:var(--primary); font-size: 1rem;';
-                            title.textContent = compra.nomeRifa || 'Sorteio';
+                                const numbers = document.createElement('p');
+                                numbers.style.cssText = 'font-size: 0.85rem; color: #ccc; margin-top: 4px;';
+                                const formattedNumbers = (compra.numeros || []).map((number) => String(number).padStart(6, '0'));
+                                numbers.textContent = `Números: ${formattedNumbers.join(', ') || 'Nenhum'}`;
 
-                            const numbers = document.createElement('p');
-                            numbers.style.cssText = 'font-size: 0.85rem; color: #ccc; margin-top: 4px;';
-                            const formattedNumbers = (compra.numeros || []).map((number) => String(number).padStart(6, '0'));
-                            numbers.textContent = `Números: ${formattedNumbers.join(', ') || 'Nenhum'}`;
+                                const details = document.createElement('div');
+                                details.append(title, numbers);
 
-                            const details = document.createElement('div');
-                            details.append(title, numbers);
+                                const status = document.createElement('span');
+                                status.style.cssText = `background: ${compra.status === 'pago' ? '#22c55e' : '#f59e0b'}; color: #081021; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;`;
+                                status.textContent = (compra.status || 'pendente').toUpperCase();
 
-                            const status = document.createElement('span');
-                            status.style.cssText = `background: ${compra.status === 'pago' ? '#22c55e' : '#f59e0b'}; color: #081021; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;`;
-                            status.textContent = (compra.status || 'pendente').toUpperCase();
-
-                            const row = document.createElement('div');
-                            row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:12px;';
-                            row.append(details, status);
-                            card.appendChild(row);
-                            listaCotasDiv.appendChild(card);
-                        });
+                                const row = document.createElement('div');
+                                row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:12px;';
+                                row.append(details, status);
+                                card.appendChild(row);
+                                listaCotasDiv.appendChild(card);
+                            });
+                        }
                     }
 
                 } catch (error) {
