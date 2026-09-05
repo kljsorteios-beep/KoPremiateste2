@@ -204,22 +204,97 @@ exports.createPixOrder = onCall({
   }
 });
 
+exports.syncPaymentStatus = onCall({
+  region: 'southamerica-east1',
+  secrets: [MERCADOPAGO_ACCESS_TOKEN]
+}, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sessão expirada. Faça login novamente.');
+  
+  const { orderId } = request.data;
+  if (!orderId) throw new HttpsError('invalid-argument', 'ID do pedido não informado.');
+
+  try {
+    const orderDoc = await db.collection('pedidos').doc(orderId).get();
+    if (!orderDoc.exists) throw new HttpsError('not-found', 'Pedido não encontrado.');
+    
+    const orderData = orderDoc.data();
+    if (orderData.status === 'pago') return { status: 'pago', message: 'Pagamento já processado!' };
+
+    const mpPaymentId = orderData.mpPaymentId;
+    if (!mpPaymentId) throw new HttpsError('internal', 'Este pedido não possui um ID de pagamento vinculado.');
+
+    let rawToken = MERCADOPAGO_ACCESS_TOKEN.value();
+    let token = String(rawToken || "").trim().replace(/^["\']|["\']$/g, '');
+
+    const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!mpResponse.ok) throw new HttpsError('internal', 'Erro ao consultar Mercado Pago.');
+    
+    const paymentData = await mpResponse.json();
+    if (paymentData.status !== 'approved') {
+      return { status: 'pendente', message: 'Pagamento ainda não aprovado pelo Mercado Pago.' };
+    }
+
+    // APROVADO! Processamos agora.
+    await db.runTransaction(async (transaction) => {
+      transaction.update(db.doc(`pedidos/${orderId}`), {
+        status: 'pago',
+        paidAt: FieldValue.serverTimestamp()
+      });
+
+      transaction.set(db.doc(`compras/${orderId}`), {
+        ...orderData,
+        status: 'pago',
+        paidAt: FieldValue.serverTimestamp(),
+        confirmadoEm: FieldValue.serverTimestamp()
+      });
+
+      const publicRef = db.doc('publico/rifa');
+      const publicSnap = await transaction.get(publicRef);
+      const currentSold = publicSnap.exists ? (Number(publicSnap.data().soldNumbers) || 0) : 0;
+      transaction.set(publicRef, {
+        soldNumbers: currentSold + (orderData.numeros?.length || 0)
+      }, { merge: true });
+    });
+
+    return { status: 'pago', message: 'Pagamento confirmado! Suas cotas foram liberadas.' };
+
+  } catch (e) {
+    logger.error("Erro syncPaymentStatus", e);
+    if (e instanceof HttpsError) throw e;
+    throw new HttpsError('internal', e.message);
+  }
+});
+
 exports.mercadoPagoWebhook = onRequest({
   region: 'southamerica-east1',
   secrets: [MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET]
 }, async (req, res) => {
   try {
-    const event = req.body;
-    if (!event || !event.action) {
+    const body = req.body;
+    logger.info("WEBHOOK_RAW_DATA", { 
+      headers: req.headers,
+      body: body,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!body) {
+      logger.warn("Webhook recebido com corpo vazio");
       return res.status(200).send('OK');
     }
 
-    if (event.type !== 'payment') {
+    let paymentId = null;
+    if (body.data && body.data.id) paymentId = body.data.id;
+    else if (body.id) paymentId = body.id;
+    else if (body.resource_id) paymentId = body.resource_id;
+    else if (body.data && body.data.resource_id) paymentId = body.data.resource_id;
+
+    if (!paymentId) {
+      logger.warn("Notificacao recebida sem paymentId identificavel", { body });
       return res.status(200).send('OK');
     }
-
-    const paymentId = event.data?.id;
-    if (!paymentId) return res.status(200).send('OK');
 
     let rawToken = MERCADOPAGO_ACCESS_TOKEN.value();
     let token = String(rawToken || "").trim().replace(/^["\']|["\']$/g, '');
@@ -229,18 +304,19 @@ exports.mercadoPagoWebhook = onRequest({
     });
 
     if (!mpResponse.ok) {
-      logger.error('Erro ao consultar pagamento no MP', { paymentId });
+      logger.error('Erro ao consultar pagamento no MP', { paymentId, status: mpResponse.status });
       return res.status(200).send('OK');
     }
 
     const paymentData = await mpResponse.json();
     if (paymentData.status !== 'approved') {
+      logger.info('Pagamento ainda nao aprovado', { paymentId, status: paymentData.status });
       return res.status(200).send('OK');
     }
 
     const ordersSnapshot = await db.collection('pedidos').where('mpPaymentId', '==', paymentId).get();
     if (ordersSnapshot.empty) {
-      logger.warn('Pagamento aprovado mas pedido nao encontrado', { paymentId });
+      logger.warn('Pagamento aprovado mas pedido nao encontrado no banco', { paymentId });
       return res.status(200).send('OK');
     }
 
@@ -273,7 +349,7 @@ exports.mercadoPagoWebhook = onRequest({
       }, { merge: true });
     });
 
-    logger.info('Compra processada com sucesso', { orderId, paymentId });
+    logger.info('Compra processada com sucesso via Webhook', { orderId, paymentId });
     res.status(200).send('OK');
 
   } catch (e) {
