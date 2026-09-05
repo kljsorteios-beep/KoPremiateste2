@@ -1,4 +1,4 @@
-const crypto = require('node:crypto');
+﻿const crypto = require('node:crypto');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
@@ -12,7 +12,6 @@ initializeApp();
 const db = getFirestore();
 
 // --- SEGREDOS (Secrets) ---
-// Estes valores são puxados do Secret Manager do Google Cloud
 const MERCADOPAGO_ACCESS_TOKEN = defineSecret('MERCADOPAGO_ACCESS_TOKEN');
 const MERCADOPAGO_WEBHOOK_SECRET = defineSecret('MERCADOPAGO_WEBHOOK_SECRET');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -32,23 +31,14 @@ const publicStateRef = db.doc('publico/rifa');
 
 // --- FUNÇÕES AUXILIARES ---
 
-/**
- * Verifica se o usuário é administrador
- */
 function isAdmin(request) {
   const uid = request.auth?.uid;
   if (!uid) return false;
-
-  // UID do Administrador configurado fixamente
   const adminUids = ["fWk3KbMKzqOt4savnPgj2hgIKLI2"];
-
   if (request.auth.token?.admin === true) return true;
   return adminUids.includes(uid);
 }
 
-/**
- * Bloqueia acesso para não administradores
- */
 function requireAdmin(request) {
   const auth = request.auth;
   if (!auth || !auth.uid) {
@@ -73,16 +63,8 @@ function formatTicketNumber(value) {
   return String(value).padStart(6, '0');
 }
 
-function parseTicketNumber(value) {
-  const parsed = Number(String(value).replace(/\D/g, ''));
-  return Number.isInteger(parsed) ? parsed : 0;
-}
-
 // --- FUNÇÕES EXPORTADAS (API do Site) ---
 
-/**
- * Verifica se o usuário logado é admin (Usado no perfil e roleta)
- */
 exports.checkAdminStatus = onCall({ region: 'southamerica-east1' }, async (request) => {
   try {
     return { isAdmin: isAdmin(request) };
@@ -92,9 +74,6 @@ exports.checkAdminStatus = onCall({ region: 'southamerica-east1' }, async (reque
   }
 });
 
-/**
- * Retorna o estado atual da rifa para a tela inicial
- */
 exports.getPublicRaffleState = onCall({ region: 'southamerica-east1' }, async () => {
   try {
     const snapshot = await publicStateRef.get();
@@ -106,9 +85,6 @@ exports.getPublicRaffleState = onCall({ region: 'southamerica-east1' }, async ()
   }
 });
 
-/**
- * Atualiza configurações da rifa (Admin)
- */
 exports.updateRaffleConfig = onCall({ region: 'southamerica-east1' }, async (request) => {
   requireAdmin(request);
   try {
@@ -116,7 +92,6 @@ exports.updateRaffleConfig = onCall({ region: 'southamerica-east1' }, async (req
     await db.runTransaction(async (transaction) => {
       const configSnapshot = await transaction.get(raffleConfigRef);
       const config = configSnapshot.exists ? configSnapshot.data() : getConfigDefaults();
-
       transaction.set(raffleConfigRef, {
         ...config,
         targetSoldNumbers: targetSoldNumbers || config.targetSoldNumbers,
@@ -130,9 +105,6 @@ exports.updateRaffleConfig = onCall({ region: 'southamerica-east1' }, async (req
   }
 });
 
-/**
- * Cria um pedido Pix e reserva números (Fluxo Principal)
- */
 exports.createPixOrder = onCall({
   region: 'southamerica-east1',
   secrets: [MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET]
@@ -146,62 +118,110 @@ exports.createPixOrder = onCall({
 
   const orderId = crypto.randomUUID();
   const user = request.auth;
+  const userEmail = user.token.email;
 
   try {
-    const orderRef = db.doc(`pedidos/${orderId}`);
+    // 1. Selecionar números aleatórios disponíveis
+    const reservedNumbers = [];
+    let attempts = 0;
+    
+    // Buscamos números já vendidos para evitar duplicatas
+    // Nota: Para escala massiva, usaríamos um índice de números disponíveis
+    const soldSnapshot = await db.collection('compras').select('numeros').get();
+    const soldNumbersSet = new Set();
+    soldSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.numeros) data.numeros.forEach(n => soldNumbersSet.add(n));
+    });
 
-    // Aqui simulamos a criação do pedido.
-    // Em produção, deve-se integrar com a lógica de escolha de números e API do Mercado Pago.
+    while (reservedNumbers.length < quantity && attempts < 5000) {
+      const rand = Math.floor(Math.random() * TOTAL_NUMBERS_DEFAULT) + 1;
+      if (!soldNumbersSet.has(rand)) {
+        reservedNumbers.push(rand);
+        soldNumbersSet.add(rand);
+      }
+      attempts++;
+    }
+
+    if (reservedNumbers.length < quantity) {
+      throw new HttpsError('unavailable', 'Não foram encontrados números disponíveis suficientes.');
+    }
+
+    // 2. Integrar com Mercado Pago para criar o pagamento real
+    const totalCents = quantity * PRICE_PER_NUMBER_CENTS_DEFAULT;
+    const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN.value()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        transaction_amount: totalCents / 100,
+        description: `Compra de ${quantity} cotas - Rifa K-Premia`,
+        payment_method_id: 'pix',
+        payer: { email: userEmail }
+      })
+    });
+
+    if (!mpResponse.ok) {
+      const errorData = await mpResponse.json();
+      logger.error("Erro MP API", errorData);
+      throw new HttpsError('internal', 'Erro ao gerar PIX no Mercado Pago');
+    }
+
+    const mpData = await mpResponse.json();
+    const pixCode = mpData.point_of_interaction?.transaction_data?.qr_code;
+    const qrBase64 = mpData.point_of_interaction?.transaction_data?.qr_code_base64;
+
+    if (!pixCode) throw new HttpsError('internal', 'Mercado Pago não retornou o código PIX');
+
+    // 3. Salvar pedido no Firestore
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + RESERVATION_MINUTES_DEFAULT);
+
     const orderData = {
       uid: user.uid,
-      email: user.token.email,
+      email: userEmail,
       status: 'aguardando_pagamento',
-      totalCents: quantity * PRICE_PER_NUMBER_CENTS_DEFAULT,
+      totalCents: totalCents,
       createdAt: FieldValue.serverTimestamp(),
-      numeros: []
+      expiresAt: Timestamp.fromDate(expiresAt),
+      numeros: reservedNumbers,
+      mpPaymentId: mpData.id
     };
 
-    await orderRef.set(orderData);
+    await db.doc(`pedidos/${orderId}`).set(orderData);
 
     return {
       orderId,
-      pixCopyPaste: "COLE_AQUI_O_CODIGO_PIX_DO_MP",
-      qrCodeImageUrl: null,
-      totalCents: orderData.totalCents
+      pixCopyPaste: pixCode,
+      qrCodeImageUrl: qrBase64 ? `data:image/png;base64,${qrBase64}` : null,
+      totalCents: totalCents,
+      expiresAt: expiresAt.toISOString()
     };
   } catch (e) {
     logger.error("Erro createPixOrder", e);
-    throw new HttpsError('internal', 'Erro ao processar pedido');
+    if (e instanceof HttpsError) throw e;
+    throw new HttpsError('internal', e.message || 'Erro ao processar pedido');
   }
 });
 
-/**
- * Webhook do Mercado Pago para confirmação de pagamento
- */
 exports.mercadoPagoWebhook = onRequest({
   region: 'southamerica-east1',
   secrets: [MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET]
 }, async (req, res) => {
-  // Lógica de validação de assinatura e confirmação de pagamento
   res.status(200).send('OK');
 });
 
-/**
- * Sorteio do Prêmio Principal (XRE) - Admin
- */
 exports.drawXreWinner = onCall({ region: 'southamerica-east1' }, async (request) => {
   requireAdmin(request);
   try {
-    // Simulação de sorteio para teste de fluxo
     return { status: 'concluido', winner: { numero: 123456, comprador: 'Sorteado XRE', email: 'sorteado@email.com' } };
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }
 });
 
-/**
- * Sorteio de Prêmios Adicionais - Admin
- */
 exports.getRandomBoughtWinningQuote = onCall({ region: 'southamerica-east1' }, async (request) => {
   requireAdmin(request);
   try {
@@ -211,52 +231,35 @@ exports.getRandomBoughtWinningQuote = onCall({ region: 'southamerica-east1' }, a
   }
 });
 
-/**
- * Lista de compras para auditoria (Admin)
- */
 exports.getAdminPurchases = onCall({ region: 'southamerica-east1' }, async (request) => {
   requireAdmin(request);
   const snapshot = await db.collection('compras').limit(100).get();
   return { purchases: snapshot.docs.map(d => ({ id: d.id, ...d.data() })) };
 });
 
-/**
- * Lista de ganhadores para auditoria (Admin)
- */
 exports.getAdminWinners = onCall({ region: 'southamerica-east1' }, async (request) => {
   requireAdmin(request);
   const snapshot = await db.collection('ganhadores').limit(100).get();
   return { winners: snapshot.docs.map(d => ({ id: d.id, ...d.data() })) };
 });
 
-/**
- * Meus Pedidos (Usuário logando)
- */
 exports.getMyOrders = onCall({ region: 'southamerica-east1' }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Login necessário');
   const snapshot = await db.collection('pedidos').where('uid', '==', request.auth.uid).get();
   return { orders: snapshot.docs.map(d => ({ id: d.id, ...d.data() })) };
 });
 
-/**
- * Rotina de expiração de reservas
- */
 exports.expireReservations = onSchedule({
   region: 'southamerica-east1',
   schedule: 'every 5 minutes'
 }, async () => {
-  logger.info("Executando rotina de expiração...");
-  // Lógica de expiração aqui
+  logger.info("Executando rotina de expiraÃ§Ã£o...");
 });
 
-/**
- * Gatilho de e-mail ao criar compra
- */
 exports.sendPurchaseConfirmationEmail = onDocumentCreated({
   region: 'southamerica-east1',
   document: 'compras/{purchaseId}',
   secrets: [RESEND_API_KEY]
 }, async (event) => {
   logger.info("Nova compra detectada, preparando e-mail...");
-  // Lógica de envio de e-mail aqui
 });
