@@ -702,6 +702,29 @@ exports.sendPurchaseConfirmationEmail = onDocumentCreated({
   }, { merge: true });
 });
 
+exports.checkAdminStatus = onCall({ region: 'southamerica-east1' }, async (request) => {
+  try {
+    requireAdmin(request);
+    return { isAdmin: true };
+  } catch (error) {
+    return { isAdmin: false };
+  }
+});
+
+exports.getRandomBoughtWinningQuote = onCall({ region: 'southamerica-east1' }, async (request) => {
+  requireAdmin(request);
+  const snapshot = await db.collection('ganhadores').where('categoria', '==', 'adicional').get();
+  if (snapshot.empty) {
+    throw new HttpsError('not-found', 'Nenhuma cota premiada adicional foi comprada ainda.');
+  }
+  const docs = snapshot.docs;
+  const randomDoc = docs[crypto.randomInt(docs.length)];
+  return {
+    winner: randomDoc.data(),
+    id: randomDoc.id,
+  };
+});
+
 exports.getPublicRaffleState = onCall({ region: 'southamerica-east1' }, async () => {
   const snapshot = await publicStateRef.get();
   if (!snapshot.exists) {
