@@ -150,7 +150,8 @@ exports.createPixOrder = onCall({
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': orderId
       },
       body: JSON.stringify({
         transaction_amount: totalCents / 100,
