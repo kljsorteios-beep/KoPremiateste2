@@ -252,13 +252,13 @@
         </div>
     </footer>
 
-    <script type="module">
+      <script type="module">
         import { auth, db, onAuthStateChanged, signOut } from './firebase-client.js';
         import { doc, getDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-        // CORREÇÃO 1: Importando as funções necessárias
         import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
 
-        const functions = getFunctions();
+        // CORREÇÃO CRUCIAL: Avisando ao site que as funções estão em São Paulo
+        const functions = getFunctions(undefined, 'southamerica-east1');
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -266,12 +266,10 @@
                 if (emailEl) emailEl.innerText = user.email;
 
                 try {
-                    // --- CHECK ADMIN STATUS ---
-                    // Agora com a importação correta, isso vai funcionar!
+                    // Agora ele vai procurar em southamerica-east1 e vai encontrar!
                     const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
                     const adminSection = document.getElementById('admin-section');
 
-                    // CORREÇÃO 2: Verificando se o elemento existe antes de mudar o estilo (evita o erro de 'style')
                     if (adminCheck.data && adminCheck.data.isAdmin && adminSection) {
                         adminSection.style.display = 'block';
                     }
@@ -305,7 +303,6 @@
                         if (phoneEl) phoneEl.innerText = "Não cadastrado";
                     }
 
-                    // --- BUSCAR AS COTAS (TÍTULOS) DO USUÁRIO ---
                     const listaCotasDiv = document.getElementById('listaCotas');
                     if (listaCotasDiv) {
                         const qCotas = query(collection(db, "compras"), where("uid", "==", user.uid));
