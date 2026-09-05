@@ -259,7 +259,7 @@
         import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
 
         // INICIALIZAÇÃO DAS FUNCTIONS:
-        const functions = getFunctions();
+       const functions = getFunctions('southamerica-east1');
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
