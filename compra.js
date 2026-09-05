@@ -38,80 +38,6 @@ function renderAuthNav(user) {
 
   authNav.appendChild(createNavLink('Minha conta', 'perfil.html', 'btn-login'));
   const logoutButton = document.createElement('button');
-Agora descobrimos o "culpado"! Analisando o código do seu index.js que você me enviou, eunção checkAdminStatus não existe no seu servidor.
-
-Você tem a função de criar pedido, a de roleta, a de e-mail... mas a função que verifica se o usuário é administrador (checkAdminStatus) não foi escrita no arquivo index.js.
-
-O que acontece na prática:
-Quando o seu site tenta perguntar ao servidor "Esse usuário é admin?", o servidor responde: "Eu não conheço nenhuma função com esse nome". O navegador recebe esse erro do servidor e, por segurança, ele reporta como um erro de CORS ou Internal Error. É por isso que o perfil não carrega e a roleta "abre e fecha" (porque ela tenta verificar o admin, falha e te joga para fora).
-
-Vamos resolver isso agora com um "pacote completo" de correções.
-
-1. Corrigindo o index.js (O Cérebro)
-
-Você precisa adicionar a função checkAdminStatus no seu arquivo functions/index.js.
-
-Copie este bloco de código e cole-o logo abaixo da função requireAdmin (por volta da linha 115) no seu index.js:
-
-exports.checkAdminStatus = onCall({ region: 'southamerica-east1' }, async (request) => {
-  return {
-    isAdmin: isAdmin(request),
-  };
-});
-
-Depois de colar isso, salve o arquivo e faça o deploy novamente:
-firebase deploy --only functions
-
----
-
-2. Sincronizando o Frontend (O Corpo)
-
-Para garantir que tudo funcione sem erro de região ou de "undefined", use estas versões dos arquivos. Elas agora usam o firebase-client.js como a única fonte de verdade.
-
-Arquivo: compra.js
-
-Substitua todo o conteúdo por este:
-
-import {
-  auth,
-  httpsCallable,
-  functions,
-  onAuthStateChanged,
-  signOut,
-} from './firebase-client.js';
-
-const getPublicRaffleState = httpsCallable(functions, 'getPublicRaffleState');
-const createPixOrder = httpsCallable(functions, 'createPixOrder');
-
-const state = {
-  currentOrder: null,
-  countdownTimer: null,
-  refreshTimer: null,
-};
-
-function createNavLink(text, href, className) {
-  const link = document.createElement('a');
-  link.href = href;
-  link.className = className;
-  link.textContent = text;
-  return link;
-}
-
-function renderAuthNav(user) {
-  const authNav = document.getElementById('authNav');
-  if (!authNav) return;
-  authNav.replaceChildren();
-
-  if (!user) {
-    authNav.append(
-      createNavLink('Entrar', 'login.html', 'btn-login'),
-      createNavLink('Criar Conta', 'cadastro.html', 'btn-primary'),
-    );
-    return;
-  }
-
-  authNav.appendChild(createNavLink('Minha conta', 'perfil.html', 'btn-login'));
-  const logoutButton = document.createElement('button');
   logoutButton.type = 'button';
   logoutButton.className = 'btn-primary';
   logoutButton.textContent = 'Sair';
@@ -212,7 +138,7 @@ function startCountdown(expiresAt) {
       clearInterval(state.countdownTimer);
       showMessage('O prazo da reserva terminou. Se o pagamento não for confirmado, os números voltarão a ficar disponíveis.', 'warning');
     }
- };
+  };
   tick();
   state.countdownTimer = setInterval(tick, 1000);
 }
@@ -260,7 +186,7 @@ async function handlePurchase() {
     const message = error?.message || 'Não foi possível criar a reserva agora.';
     showMessage(message.replace('INTERNAL:', '').trim(), 'error');
   } finally {
-    if (button && !state.currentOrder) button.disabled = false;
+    if (but
   }
 }
 
