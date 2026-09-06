@@ -85,11 +85,22 @@ exports.updateRaffleConfig = onCall({ region: 'southamerica-east1' }, async (req
     await db.runTransaction(async (transaction) => {
       const configSnapshot = await transaction.get(raffleConfigRef);
       const config = configSnapshot.exists ? configSnapshot.data() : getConfigDefaults();
-      transaction.set(raffleConfigRef, {
+
+      const updatedConfig = {
         ...config,
-        targetSoldNumbers: targetSoldNumbers || config.targetSoldNumbers,
-        status: status || config.status,
+        targetSoldNumbers: targetSoldNumbers !== undefined ? targetSoldNumbers : config.targetSoldNumbers,
+        status: status !== undefined ? status : config.status,
         updatedAt: FieldValue.serverTimestamp()
+      };
+
+      // 1. Atualiza a configuração mestre
+      transaction.set(raffleConfigRef, updatedConfig, { merge: true });
+
+      // 2. Sincroniza imediatamente com o estado público para o admin e site verem a mudança
+      transaction.set(publicStateRef, {
+        ...updatedConfig,
+        // Mantemos os números vendidos atuais do estado público
+        soldNumbers: (await transaction.get(publicStateRef)).data()?.soldNumbers || 0
       }, { merge: true });
     });
     return { success: true };
@@ -239,6 +250,10 @@ exports.syncPaymentStatus = onCall({
 
     // APROVADO! Processamos agora.
     await db.runTransaction(async (transaction) => {
+      const publicRef = db.doc('publico/rifa');
+      const publicSnap = await transaction.get(publicRef);
+      const currentSold = publicSnap.exists ? (Number(publicSnap.data().soldNumbers) || 0) : 0;
+
       transaction.update(db.doc(`pedidos/${orderId}`), {
         status: 'pago',
         paidAt: FieldValue.serverTimestamp()
@@ -251,9 +266,6 @@ exports.syncPaymentStatus = onCall({
         confirmadoEm: FieldValue.serverTimestamp()
       });
 
-      const publicRef = db.doc('publico/rifa');
-      const publicSnap = await transaction.get(publicRef);
-      const currentSold = publicSnap.exists ? (Number(publicSnap.data().soldNumbers) || 0) : 0;
       transaction.set(publicRef, {
         soldNumbers: currentSold + (orderData.numeros?.length || 0)
       }, { merge: true });
@@ -329,6 +341,10 @@ exports.mercadoPagoWebhook = onRequest({
     }
 
     await db.runTransaction(async (transaction) => {
+      const publicRef = db.doc('publico/rifa');
+      const publicSnap = await transaction.get(publicRef);
+      const currentSold = publicSnap.exists ? (Number(publicSnap.data().soldNumbers) || 0) : 0;
+
       transaction.update(db.doc(`pedidos/${orderId}`), {
         status: 'pago',
         paidAt: FieldValue.serverTimestamp()
@@ -341,9 +357,6 @@ exports.mercadoPagoWebhook = onRequest({
         confirmadoEm: FieldValue.serverTimestamp()
       });
 
-      const publicRef = db.doc('publico/rifa');
-      const publicSnap = await transaction.get(publicRef);
-      const currentSold = publicSnap.exists ? (Number(publicSnap.data().soldNumbers) || 0) : 0;
       transaction.set(publicRef, {
         soldNumbers: currentSold + (orderData.numeros?.length || 0)
       }, { merge: true });
@@ -361,8 +374,61 @@ exports.mercadoPagoWebhook = onRequest({
 exports.drawXreWinner = onCall({ region: 'southamerica-east1' }, async (request) => {
   requireAdmin(request);
   try {
-    return { status: 'concluido', winner: { numero: 123456, comprador: 'Sorteado XRE', email: 'sorteado@email.com' } };
+    // 1. Verificação de Segurança: Só permite sortear se a meta for atingida e a campanha encerrada
+    const stateSnap = await publicStateRef.get();
+    const state = stateSnap.exists ? stateSnap.data() : getConfigDefaults();
+    const sold = Number(state.soldNumbers || 0);
+    const configSnap = await raffleConfigRef.get();
+    const configData = configSnap.exists ? configSnap.data() : getConfigDefaults();
+    const target = Number(state.targetSoldNumbers ?? configData.targetSoldNumbers ?? TOTAL_NUMBERS_DEFAULT);
+    const status = state.status || configData.status || 'preparacao';
+
+    if (status !== 'encerrada') {
+      throw new HttpsError('failed-precondition', `Sorteio bloqueado: Campanha não encerrada (status: "${status}").`);
+    }
+
+    if (sold < target) {
+      throw new HttpsError('failed-precondition', `Sorteio bloqueado: Meta não atingida (${sold}/${target} vendidos).`);
+    }
+
+    // 2. Buscar todas as compras pagas
+    const comprasSnap = await db.collection('compras').where('status', '==', 'pago').get();
+
+    if (comprasSnap.empty) {
+      throw new HttpsError('not-found', 'Nenhuma compra paga encontrada para realizar o sorteio.');
+    }
+
+    const docs = comprasSnap.docs;
+    const randomDoc = docs[Math.floor(Math.random() * docs.length)];
+    const winnerData = randomDoc.data();
+
+    // A compra pode ter vários números, sorteamos um deles
+    const numeros = winnerData.numeros || [];
+    const numeroSorteado = numeros[Math.floor(Math.random() * numeros.length)];
+
+    const result = {
+      numero: numeroSorteado,
+      comprador: winnerData.nome || 'Comprador não informado',
+      email: winnerData.email || 'E-mail não informado',
+      pedidoId: randomDoc.id,
+      sorteadoEm: FieldValue.serverTimestamp()
+    };
+
+    // 3. Gravar resultado para auditoria (Imutável)
+    await db.doc('sorteios/xre').set({
+      ...result,
+      status: 'concluido'
+    });
+
+    await db.collection('ganhadores').doc('xre').set({
+      ...result,
+      categoria: 'principal'
+    });
+
+    return { status: 'concluido', winner: result };
   } catch (e) {
+    logger.error("Erro drawXreWinner", e);
+    if (e instanceof HttpsError) throw e;
     throw new HttpsError('internal', e.message);
   }
 });
@@ -424,3 +490,5 @@ exports.sendPurchaseConfirmationEmail = onDocumentCreated({
 }, async (event) => {
   logger.info("Nova compra detectada, preparando e-mail...");
 });
+
+// Force Deploy 09/05/2026 19:13:33
