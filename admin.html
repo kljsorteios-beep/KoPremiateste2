@@ -171,9 +171,10 @@
       const button = document.getElementById('loadWinningNumbers'); button.disabled = true;
       try {
         const result = await getWinningNumbers({ pageSize: 500 });
+        const total = result.data?.total ?? result.data?.numbers?.length ?? 0;
         const container = document.getElementById('numbers'); container.replaceChildren();
         for (const number of result.data?.numbers || []) { const item = document.createElement('div'); item.className = 'number'; item.textContent = String(number).padStart(6, '0'); container.appendChild(item); }
-        document.getElementById('numbersStatus').textContent = `${container.children.length.toLocaleString('pt-BR')} números exibidos nesta página.`;
+        document.getElementById('numbersStatus').textContent = `${container.children.length.toLocaleString('pt-BR')} números exibidos nesta página (total cadastrado: ${Number(total).toLocaleString('pt-BR')}).`;
       } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível carregar os números.', 'error'); }
       finally { button.disabled = false; }
     }
