@@ -85,6 +85,8 @@ exports.updateRaffleConfig = onCall({ region: 'southamerica-east1' }, async (req
     await db.runTransaction(async (transaction) => {
       const configSnapshot = await transaction.get(raffleConfigRef);
       const config = configSnapshot.exists ? configSnapshot.data() : getConfigDefaults();
+      const publicSnap = await transaction.get(publicStateRef);
+      const currentSoldNumbers = publicSnap.exists ? (publicSnap.data()?.soldNumbers || 0) : 0;
 
       const updatedConfig = {
         ...config,
@@ -99,8 +101,7 @@ exports.updateRaffleConfig = onCall({ region: 'southamerica-east1' }, async (req
       // 2. Sincroniza imediatamente com o estado público para o admin e site verem a mudança
       transaction.set(publicStateRef, {
         ...updatedConfig,
-        // Mantemos os números vendidos atuais do estado público
-        soldNumbers: (await transaction.get(publicStateRef)).data()?.soldNumbers || 0
+        soldNumbers: currentSoldNumbers
       }, { merge: true });
     });
     return { success: true };
@@ -123,6 +124,16 @@ exports.createPixOrder = onCall({
   const orderId = crypto.randomUUID();
   const user = request.auth;
   const userEmail = user.token.email;
+
+  let userNome = '';
+  try {
+    const userDocSnap = await db.doc(`usuarios/${user.uid}`).get();
+    if (userDocSnap.exists) {
+      userNome = userDocSnap.data()?.nome || '';
+    }
+  } catch (e) {
+    logger.error("Erro ao buscar nome do usuario", e);
+  }
 
   try {
     let rawToken = MERCADOPAGO_ACCESS_TOKEN.value();
@@ -190,6 +201,7 @@ exports.createPixOrder = onCall({
 
     const orderData = {
       uid: user.uid,
+      nome: userNome,
       email: userEmail,
       status: 'aguardando_pagamento',
       totalCents: totalCents,
