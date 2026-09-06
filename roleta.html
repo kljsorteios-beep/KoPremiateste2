@@ -143,9 +143,7 @@
                 <button id="mode-adicional" class="mode-btn" onclick="setMode('adicional')">Sorteio Adicional</button>
             </div>
             <button id="btn-spin" class="btn-spin" onclick="spinWheel()">GIRAR ROLETA</button>
-            <div class="stats" id="stats-display">
-                Carregando estat&iacute;sticas...
-            </div>
+<div class="stats" id="stats-display" style="display:none;"></div>
         </div>
     </main>
 
@@ -164,10 +162,8 @@
     </footer>
 
     <script type="module">
-        import { auth, functions, httpsCallable } from './firebase-client.js';
-        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { db } from './firebase-client.js';
-        import { collection, query, where, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { auth, functions, httpsCallable, onAuthStateChanged } from './firebase-client.js';
+import { db } from './firebase-client.js';
 
         let currentMode = 'xre';
         let isSpinning = false;
@@ -178,12 +174,6 @@
             document.getElementById('mode-xre').classList.toggle('active', mode === 'xre');
             document.getElementById('mode-adicional').classList.toggle('active', mode === 'adicional');
         };
-
-        // Live count of winning quotes
-        onSnapshot(query(collection(db, "ganhadores"), where("categoria", "==", "adicional")), (snapshot) => {
-            const count = snapshot.size;
-            document.getElementById('stats-display').innerHTML = `Cotas Premiadas Vendidas: <span>${count}</span> / 10.000`;
-        });
 
         async function spinWheel() {
             if (isSpinning) return;
