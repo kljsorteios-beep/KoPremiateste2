@@ -503,4 +503,59 @@ exports.sendPurchaseConfirmationEmail = onDocumentCreated({
   logger.info("Nova compra detectada, preparando e-mail...");
 });
 
+exports.checkAdditionalPrize = onDocumentCreated({
+  region: 'southamerica-east1',
+  document: 'compras/{purchaseId}'
+}, async (event) => {
+  try {
+    const purchaseDoc = await db.doc(`compras/${event.params.purchaseId}`).get();
+    if (!purchaseDoc.exists) return;
+
+    const purchaseData = purchaseDoc.data();
+    if (purchaseData?.status !== 'pago') return;
+
+    const numerosComprados = purchaseData.numeros || [];
+    const compradorNome = purchaseData.nome || 'Comprador';
+    const compradorEmail = purchaseData.email || 'sem email';
+    const pedidoId = event.params.purchaseId;
+
+    let addedCount = 0;
+    for (const numero of numerosComprados) {
+      const numFormatted = String(numero).padStart(6, '0');
+      const numDoc = await db.doc(`numerosPremiados/${numFormatted}`).get();
+      if (!numDoc.exists) continue;
+
+      const numData = numDoc.data();
+      if (!numData?.isWinningNumber) continue;
+
+      const existingCheck = await db.collection('ganhadores')
+        .where('numero', '==', numero)
+        .where('pedidoId', '==', pedidoId)
+        .limit(1)
+        .get();
+      if (!existingCheck.empty) continue;
+
+      await db.collection('ganhadores').add({
+        numero,
+        comprador: compradorNome,
+        email: compradorEmail,
+        pedidoId,
+        premioNome: numData.premioNome || null,
+        premioTipo: numData.premioTipo || null,
+        premioValorCents: numData.premioValorCents || null,
+        categoria: 'adicional',
+        status: 'confirmado',
+        confirmadoEm: FieldValue.serverTimestamp()
+      });
+      addedCount++;
+    }
+
+    if (addedCount > 0) {
+      logger.info(`Adicionados ${addedCount} ganhadores adicionais para pedido ${pedidoId}`);
+    }
+  } catch (e) {
+    logger.error("Erro checkAdditionalPrize", e);
+  }
+});
+
 // Force Deploy 09/05/2026 19:13:33
