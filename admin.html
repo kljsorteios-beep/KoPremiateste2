@@ -20,6 +20,7 @@
     .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; } .stat { padding:13px; border-radius:9px; background:rgba(255,255,255,.03); } .stat small { display:block; color:var(--muted); font-size:.75rem; } .stat strong { display:block; margin-top:4px; font-size:1.15rem; color:var(--gold-light); }
     .table-wrap { overflow:auto; margin-top:14px; } table { width:100%; border-collapse:collapse; min-width:720px; } th,td { padding:10px 8px; text-align:left; border-bottom:1px solid rgba(255,255,255,.08); font-size:.8rem; vertical-align:top; } th { color:var(--gold-light); } td { color:#ddd; } .muted { color:var(--muted); }
     .numbers { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; margin-top:14px; } .number { padding:8px; text-align:center; border:1px solid rgba(212,175,55,.23); border-radius:7px; color:var(--gold-light); font-weight:700; }
+    .pager { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:14px; } .pager button { width:auto; flex:1; min-width:110px; padding:9px 10px; } .pager .page-info { flex:2; text-align:center; color:var(--gold-light); font-weight:700; font-size:.85rem; min-width:180px; } .pager select, .pager input { width:auto; flex:1; min-width:140px; }
     .warning { color:#ffd27a; font-size:.85rem; line-height:1.6; }
     .roulette { width:150px; height:150px; margin:18px auto; border-radius:50%; border:8px solid var(--gold); background:conic-gradient(#7b551a 0deg 45deg,#fced9e 45deg 90deg,#9a6d1f 90deg 135deg,#fced9e 135deg 180deg,#7b551a 180deg 225deg,#fced9e 225deg 270deg,#9a6d1f 270deg 315deg,#fced9e 315deg 360deg); display:grid; place-items:center; color:#081021; font-weight:900; box-shadow:0 0 0 6px rgba(212,175,55,.16),0 8px 24px rgba(0,0,0,.35); }
     .roulette::after { content:'XRE'; width:56px; height:56px; border-radius:50%; display:grid; place-items:center; background:#fff4bd; border:3px solid #8a631c; }
@@ -77,9 +78,20 @@
 
     <div class="card">
       <h2>Auditoria das 10.000 cotas</h2>
-      <div class="actions"><button id="loadWinningNumbers" class="secondary">Carregar números reservados para prêmios</button></div>
+      <p class="muted">Os 10.000 números premiados são exibidos em páginas de 500 para não travar o navegador. Use as setas para navegar entre as 20 páginas ou busque um número exato.</p>
+      <div class="pager">
+        <input id="searchNumber" type="text" inputmode="numeric" placeholder="Buscar nº exato (ex: 1234)">
+        <select id="pageSizeSelect"><option value="500" selected>500 por página</option><option value="200">200 por página</option><option value="1000">1000 por página</option></select>
+        <button id="loadWinningNumbers" class="secondary">Carregar página 1</button>
+        <button id="searchBtn" class="secondary">Buscar</button>
+      </div>
       <div id="numbersStatus" class="muted"></div>
       <div id="numbers" class="numbers"></div>
+      <div class="pager">
+        <button id="prevPage" class="secondary" disabled>← Anterior</button>
+        <div id="pageInfo" class="page-info">Página — de —</div>
+        <button id="nextPage" class="secondary" disabled>Próxima →</button>
+      </div>
     </div>
   </main>
 
@@ -156,27 +168,52 @@
     async function loadWinners() {
       const button = document.getElementById('loadWinners'); button.disabled = true;
       try {
-        const result = await getAdminWinners({ pageSize: 200 });
+        const result = await getAdminWinners({ pageSize: 500 });
+        const all = result.data?.winners || [];
+        const xre = all.find((w) => w.categoria === 'principal' || w.id === 'xre');
+        const adicionais = all.filter((w) => (w.categoria || 'adicional') === 'adicional' && w.id !== 'xre');
         const rows = clearTable('winnersTable');
-        for (const winner of result.data?.winners || []) {
+        for (const winner of adicionais) {
           const row = document.createElement('tr');
           row.append(cell(String(winner.numero).padStart(6, '0')), cell(winner.premioNome || 'Prêmio a definir'), cell(winner.comprador), cell(winner.email), cell(winner.pedidoId), cell(formatDate(winner.confirmadoEm || winner.sorteadoEm))); rows.appendChild(row);
         }
-        document.getElementById('winnersStatus').textContent = `${rows.children.length.toLocaleString('pt-BR')} ganhadores carregados.`;
+        document.getElementById('winnersStatus').textContent = `${rows.children.length.toLocaleString('pt-BR')} ganhadores adicionais carregados (${all.length - adicionais.length} registro(s) da XRE ignorados nesta tabela).`;
+        if (xre) {
+          document.getElementById('xreResult').textContent = `XRE já sorteada: cota ${String(xre.numero || '').padStart(6, '0')} — ${xre.comprador || ''} — ${xre.email || ''}. Apague ganhadores/xre + sorteios/xre para limpar teste.`;
+        } else {
+          document.getElementById('xreResult').textContent = 'Nenhuma XRE sorteada até agora (correto antes dos 100%).';
+        }
       } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível carregar os ganhadores.', 'error'); }
       finally { button.disabled = false; }
     }
 
-    async function loadWinningNumbers() {
+    let winPage = 1, winTotalPages = 1, winTotal = 0;
+    function updatePager() {
+      document.getElementById('prevPage').disabled = winPage <= 1;
+      document.getElementById('nextPage').disabled = winPage >= winTotalPages;
+      document.getElementById('pageInfo').textContent = winTotal > 0 ? `Página ${winPage} de ${winTotalPages} (total: ${Number(winTotal).toLocaleString('pt-BR')})` : 'Página — de —';
+      document.getElementById('loadWinningNumbers').textContent = 'Recarregar página 1';
+    }
+    async function loadWinningNumbers(page = 1, search = '') {
       const button = document.getElementById('loadWinningNumbers'); button.disabled = true;
+      document.getElementById('prevPage').disabled = true; document.getElementById('nextPage').disabled = true;
       try {
-        const result = await getWinningNumbers({ pageSize: 500 });
-        const total = result.data?.total ?? result.data?.numbers?.length ?? 0;
+        const pageSize = Number(document.getElementById('pageSizeSelect').value) || 500;
+        const result = await getWinningNumbers({ pageSize, page, search });
+        const data = result.data || {};
+        winTotal = data.total ?? data.numbers?.length ?? 0;
+        winTotalPages = data.totalPages ?? Math.max(1, Math.ceil(winTotal / pageSize));
+        winPage = data.page ?? page;
         const container = document.getElementById('numbers'); container.replaceChildren();
-        for (const number of result.data?.numbers || []) { const item = document.createElement('div'); item.className = 'number'; item.textContent = String(number).padStart(6, '0'); container.appendChild(item); }
-        document.getElementById('numbersStatus').textContent = `${container.children.length.toLocaleString('pt-BR')} números exibidos nesta página (total cadastrado: ${Number(total).toLocaleString('pt-BR')}).`;
+        for (const number of data.numbers || []) { const item = document.createElement('div'); item.className = 'number'; item.textContent = String(number).padStart(6, '0'); container.appendChild(item); }
+        if (data.search) {
+          document.getElementById('numbersStatus').textContent = data.found ? `Número ${data.search} É premiado (1 de ${Number(winTotal).toLocaleString('pt-BR')}).` : `Número ${data.search} NÃO está entre os premiados (total: ${Number(winTotal).toLocaleString('pt-BR')}).`;
+        } else {
+          document.getElementById('numbersStatus').textContent = `${container.children.length.toLocaleString('pt-BR')} números exibidos nesta página (página ${winPage}/${winTotalPages}, total cadastrado: ${Number(winTotal).toLocaleString('pt-BR')}).`;
+        }
+        updatePager();
       } catch (error) { console.error(error); showMessage(error.message || 'Não foi possível carregar os números.', 'error'); }
-      finally { button.disabled = false; }
+      finally { button.disabled = false; updatePager(); }
     }
 
     async function drawXre() {
@@ -197,7 +234,11 @@
     document.getElementById('recountSold').addEventListener('click', recountSold);
     document.getElementById('loadPurchases').addEventListener('click', loadPurchases);
     document.getElementById('loadWinners').addEventListener('click', loadWinners);
-    document.getElementById('loadWinningNumbers').addEventListener('click', loadWinningNumbers);
+    document.getElementById('loadWinningNumbers').addEventListener('click', () => loadWinningNumbers(1));
+    document.getElementById('prevPage').addEventListener('click', () => { if (winPage > 1) loadWinningNumbers(winPage - 1); });
+    document.getElementById('nextPage').addEventListener('click', () => { if (winPage < winTotalPages) loadWinningNumbers(winPage + 1); });
+    document.getElementById('searchBtn').addEventListener('click', () => loadWinningNumbers(1, document.getElementById('searchNumber').value));
+    document.getElementById('pageSizeSelect').addEventListener('change', () => loadWinningNumbers(1));
     document.getElementById('drawXre').addEventListener('click', drawXre);
 
     onAuthStateChanged(auth, async (user) => {
