@@ -261,12 +261,18 @@ exports.syncPaymentStatus = onCall({
     }
 
     // APROVADO! Processamos agora.
+    // A verificação de idempotência acontece DENTRO da transação: se o
+    // webhook e o botão "confirmar" rodarem ao mesmo tempo, só um soma.
     await db.runTransaction(async (transaction) => {
+      const orderRef = db.doc(`pedidos/${orderId}`);
+      const freshSnap = await transaction.get(orderRef);
+      if (freshSnap.exists && freshSnap.data()?.status === 'pago') return;
+
       const publicRef = db.doc('publico/rifa');
       const publicSnap = await transaction.get(publicRef);
       const currentSold = publicSnap.exists ? (Number(publicSnap.data().soldNumbers) || 0) : 0;
 
-      transaction.update(db.doc(`pedidos/${orderId}`), {
+      transaction.update(orderRef, {
         status: 'pago',
         paidAt: FieldValue.serverTimestamp()
       });
@@ -353,11 +359,15 @@ exports.mercadoPagoWebhook = onRequest({
     }
 
     await db.runTransaction(async (transaction) => {
+      const orderRef = db.doc(`pedidos/${orderId}`);
+      const freshSnap = await transaction.get(orderRef);
+      if (freshSnap.exists && freshSnap.data()?.status === 'pago') return;
+
       const publicRef = db.doc('publico/rifa');
       const publicSnap = await transaction.get(publicRef);
       const currentSold = publicSnap.exists ? (Number(publicSnap.data().soldNumbers) || 0) : 0;
 
-      transaction.update(db.doc(`pedidos/${orderId}`), {
+      transaction.update(orderRef, {
         status: 'pago',
         paidAt: FieldValue.serverTimestamp()
       });
@@ -465,6 +475,44 @@ exports.getRandomBoughtWinningQuote = onCall({ region: 'southamerica-east1' }, a
     };
   } catch (e) {
     logger.error("Erro getRandomBoughtWinningQuote", e);
+    if (e instanceof HttpsError) throw e;
+    throw new HttpsError('internal', e.message);
+  }
+});
+
+exports.getWinningNumbers = onCall({ region: 'southamerica-east1' }, async (request) => {
+  requireAdmin(request);
+  try {
+    const pageSize = Math.min(1000, Math.max(1, Number(request.data?.pageSize) || 500));
+    const snapshot = await db.collection('numerosPremiados')
+      .where('isWinningNumber', '==', true)
+      .limit(pageSize)
+      .get();
+    const numbers = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      const parsed = Number.parseInt(doc.id, 10);
+      return Number.isNaN(parsed) ? Number(data.numero) : parsed;
+    }).filter((n) => Number.isFinite(n));
+    return { numbers, count: numbers.length };
+  } catch (e) {
+    logger.error("Erro getWinningNumbers", e);
+    if (e instanceof HttpsError) throw e;
+    throw new HttpsError('internal', e.message);
+  }
+});
+
+exports.adminRecountSoldNumbers = onCall({ region: 'southamerica-east1' }, async (request) => {
+  requireAdmin(request);
+  try {
+    const snapshot = await db.collection('compras').where('status', '==', 'pago').get();
+    let soldNumbers = 0;
+    snapshot.forEach((docSnap) => {
+      soldNumbers += Number(docSnap.data()?.numeros?.length) || 0;
+    });
+    await publicStateRef.set({ soldNumbers }, { merge: true });
+    return { soldNumbers, purchaseCount: snapshot.size };
+  } catch (e) {
+    logger.error("Erro adminRecountSoldNumbers", e);
     if (e instanceof HttpsError) throw e;
     throw new HttpsError('internal', e.message);
   }
