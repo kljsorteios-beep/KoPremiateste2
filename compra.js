@@ -76,6 +76,24 @@ function showMessage(message, type = 'info') {
   element.hidden = false;
 }
 
+function friendlyError(error) {
+  const raw = String(error?.message || '');
+  let clean = raw.replace(
+    /^(INTERNAL:|FAILED_PRECONDITION:|PERMISSION_DENIED:|UNAUTHENTICATED:|INVALID_ARGUMENT:|NOT_FOUND:|UNAVAILABLE:|ALREADY_EXISTS:|ABORTED:|OUT_OF_RANGE:|DATA_LOSS:|UNKNOWN:)\s*/,
+    ''
+  ).trim();
+  const code = String(error?.code || '').replace(/^functions\//, '');
+  if (code === 'unauthenticated') return 'Sua sess&atilde;o expirou. Fa&ccedil;a login novamente.';
+  if (code === 'permission-denied') return 'Voc&ecirc; n&atilde;o tem permiss&atilde;o para essa a&ccedil;&atilde;o.';
+  if (code === 'not-found') return 'Registro n&atilde;o encontrado.';
+  if (!clean) {
+    if (code === 'unavailable') return 'N&atilde;o h&aacute; cotas dispon&iacute;veis suficientes no momento.';
+    if (code === 'invalid-argument') return 'Dados inv&aacute;lidos enviados.';
+    return 'N&atilde;o foi poss&iacute;vel concluir a opera&ccedil;&atilde;o. Tente novamente.';
+  }
+  return clean;
+}
+
 function hideMessage() {
   const element = document.getElementById('purchase-message');
   if (element) element.hidden = true;
@@ -151,7 +169,7 @@ async function confirmPayment() {
     }
   } catch (error) {
     console.error('Erro ao confirmar pagamento:', error);
-    showMessage(error.message || 'Erro ao verificar pagamento.', 'error');
+    showMessage(friendlyError(error), 'error');
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -217,8 +235,7 @@ async function handlePurchase() {
     await refreshPublicState();
   } catch (error) {
     console.error('Erro ao criar pedido:', error);
-    const message = error?.message || 'N&atilde;o foi poss&iacute;vel criar a reserva agora.';
-    showMessage(message.replace('INTERNAL:', '').trim(), 'error');
+    showMessage(friendlyError(error), 'error');
   } finally {
     if (button && !state.currentOrder) button.disabled = false;
   }
@@ -267,4 +284,5 @@ document.addEventListener('DOMContentLoaded', () => {
   state.refreshTimer = setInterval(refreshPublicState, 30000);
   document.querySelector('.btn-participar')?.addEventListener('click', handlePurchase);
   document.getElementById('copy-pix-button')?.addEventListener('click', copyPixCode);
+  document.getElementById('btn-confirm-payment')?.addEventListener('click', confirmPayment);
 });

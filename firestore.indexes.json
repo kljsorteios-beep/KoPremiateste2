@@ -23,14 +23,16 @@
         { "fieldPath": "uid", "order": "ASCENDING" },
         { "fieldPath": "paidAt", "order": "DESCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "numerosPremiados",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "numero", "order": "ASCENDING" }
-      ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "numerosPremiados",
+      "fieldPath": "numero",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" }
+      ]
+    }
+  ]
 }

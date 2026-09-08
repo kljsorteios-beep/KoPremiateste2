@@ -20,7 +20,14 @@
       "scripts/**",
       "generated-raffle/**",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "vercel.json",
+      "env.example",
+      "sdkconfig.json",
+      "premios*.json",
+      "download",
+      "*.md",
+      "*.log"
     ],
     "cleanUrls": false
   }

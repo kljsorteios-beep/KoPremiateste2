@@ -1,0 +1,19 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "routes": [
+    { "src": "/functions(?:/.*)?", "dest": "/__not_found" },
+    { "src": "/scripts(?:/.*)?", "dest": "/__not_found" },
+    { "src": "/AUDITORIA\\.md", "dest": "/__not_found" },
+    { "src": "/IMPLEMENTACAO\\.md", "dest": "/__not_found" },
+    { "src": "/PLANO-OPERACIONAL-FIREBASE\\.md", "dest": "/__not_found" },
+    { "src": "/RELATORIO-REVISAO(?:-FIREBASE)?\\.md", "dest": "/__not_found" },
+    { "src": "/premios\\.template\\.json", "dest": "/__not_found" },
+    { "src": "/sdkconfig\\.json", "dest": "/__not_found" },
+    { "src": "/env\\.example", "dest": "/__not_found" },
+    { "src": "/firebase\\.json", "dest": "/__not_found" },
+    { "src": "/firestore\\.rules", "dest": "/__not_found" },
+    { "src": "/firestore\\.indexes\\.json", "dest": "/__not_found" },
+    { "src": "/download", "dest": "/__not_found" }
+  ]
+}

@@ -371,9 +371,11 @@
     </script>
 
     <script type="module">
-        import { auth, db, browserLocalPersistence, setPersistence } from './firebase-client.js';
+        import { auth, db, functions, httpsCallable, browserLocalPersistence, setPersistence } from './firebase-client.js';
         import { createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { doc, setDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        const checkCpfDisponivel = httpsCallable(functions, 'checkCpfDisponivel');
 
         function mostrarErro(msg) {
             const errorBox = document.getElementById('errorBox');
@@ -458,12 +460,11 @@
             }
 
             try {
-                // 1. VERIFICA&Ccedil;&atilde;O DE CPF DUPLICADO
+                // 1. VERIFICA&Ccedil;&atilde;O DE CPF DUPLICADO (feita no backend,
+                // pois consultas diretas aos usu&aacute;rios s&atilde;o bloqueadas pelas regras do Firestore)
                 const cpfNormalizado = cpf.replace(/\D/g, '');
-                const qCpf = query(collection(db, "usuarios"), where("cpfNormalizado", "==", cpfNormalizado));
-                const snapCpf = await getDocs(qCpf);
-
-                if (!snapCpf.empty) {
+                const cpfCheck = await checkCpfDisponivel({ cpf: cpfNormalizado });
+                if (!cpfCheck.data.disponivel) {
                     mostrarErro("Este CPF j&aacute; est&aacute; cadastrado em nosso sistema.");
                     btn.innerText = "CRIAR CONTA";
                     btn.disabled = false;
