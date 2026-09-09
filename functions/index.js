@@ -118,8 +118,6 @@ function paymentMatchesOrder(paymentData, orderData) {
   return expectedCents > 0 && paidCents === expectedCents;
 }
 
-const AVAILABLE_COTA_STATUSES = new Set(['disponivel', undefined, null, '']);
-
 function chunkify(list, size) {
   const chunks = [];
   for (let index = 0; index < list.length; index += size) {
@@ -178,11 +176,12 @@ async function reserveNumbers(orderId, quantity) {
       .get();
     pendingSnapshot.forEach((doc) => (doc.data()?.numeros || []).forEach((n) => usedNumbers.add(n)));
 
-    // Cotas reclamadas no banco (status diferente de disponivel)
+    // Cotas com documento no banco são consideradas ocupadas (reservada,
+    // vendida ou legado materializado). O claim atômico usa "create", que
+    // falha se o documento já existir, então nenhum documento existente pode
+    // entrar na lista de candidatos.
     const cotasSnapshot = await db.collection('cotas').select('status', 'numero').get();
     cotasSnapshot.forEach((doc) => {
-      const status = doc.data()?.status;
-      if (AVAILABLE_COTA_STATUSES.has(status)) return;
       const parsed = Number(doc.data()?.numero ?? doc.id);
       if (Number.isInteger(parsed)) usedNumbers.add(parsed);
     });
