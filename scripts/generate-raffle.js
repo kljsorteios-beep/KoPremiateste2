@@ -6,15 +6,15 @@ const path = require('node:path');
 
 const DEFAULTS = {
   total: 150000,
-  // 10.000 cotas adicionais; a XRE é sorteada separadamente aos 100%.
-  winners: 10000,
+  // 50 cotas adicionais; a XRE é sorteada separadamente aos 100%.
+  winners: 50,
   prizePoolCents: 1000000,
   mainPrizeName: 'Honda XRE 190 2026',
   target: 150000,
   priceCents: 50,
   reservationMinutes: 10,
   shardSize: 1000,
-  preserveExistingCount: 10000,
+  preserveExistingCount: 50,
   mainPrizeDrawStatus: 'aguardando_100_porcento',
 };
 
@@ -130,7 +130,7 @@ async function publishData(options, data, outputDir) {
   writer.set(configRef, {
     totalNumbers: options.total,
     totalWinningNumbers: data.winners.length,
-    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
+    prizeModel: '50_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
     mainPrizeDrawStatus: options.mainPrizeDrawStatus,
     additionalPrizeCount: data.winners.length,
@@ -154,7 +154,7 @@ async function publishData(options, data, outputDir) {
   writer.set(publicRef, {
     totalNumbers: options.total,
     targetSoldNumbers: options.target,
-    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
+    prizeModel: '50_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
     mainPrizeDrawStatus: options.mainPrizeDrawStatus,
     additionalPrizeCount: data.winners.length,
@@ -174,7 +174,7 @@ async function publishData(options, data, outputDir) {
     totalWinningNumbers: data.winners.length,
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
-    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
+    prizeModel: '50_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
     mainPrizeDrawStatus: options.mainPrizeDrawStatus,
     additionalPrizeCount: data.winners.length,
@@ -231,7 +231,7 @@ async function publishData(options, data, outputDir) {
     generationId: data.generationId,
     totalNumbers: options.total,
     totalWinningNumbers: data.winners.length,
-    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
+    prizeModel: '50_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
     mainPrizeDrawStatus: options.mainPrizeDrawStatus,
     additionalPrizeCount: data.winners.length,
@@ -260,7 +260,7 @@ async function main() {
     generationId: data.generationId,
     totalNumbers: options.total,
     totalWinningNumbers: data.winners.length,
-    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
+    prizeModel: '50_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
     mainPrizeDrawStatus: options.mainPrizeDrawStatus,
     additionalPrizeCount: data.winners.length,
@@ -273,7 +273,7 @@ async function main() {
     winnersHash: data.winnersHash,
     distributionHash: data.distributionHash,
     generatedAt: new Date().toISOString(),
-    note: 'O arquivo numeros-premiados.csv é confidencial. Contém 10.000 vencedores adicionais; a XRE é sorteada separadamente quando a campanha atingir 100%. Não publicar este arquivo no frontend ou no GitHub público.',
+    note: 'O arquivo numeros-premiados.csv é confidencial. Contém 50 vencedores adicionais; a XRE é sorteada separadamente quando a campanha atingir 100%. Não publicar este arquivo no frontend ou no GitHub público.',
   });
 
   if (options.publish) {
@@ -285,7 +285,7 @@ async function main() {
     generationId: data.generationId,
     totalNumbers: options.total,
     totalWinningNumbers: data.winners.length,
-    prizeModel: '10000_cotas_adicionais_mais_xre_posterior',
+    prizeModel: '50_cotas_adicionais_mais_xre_posterior',
     mainPrizeName: options.mainPrizeName,
     mainPrizeDrawStatus: options.mainPrizeDrawStatus,
     additionalPrizeCount: data.winners.length,

@@ -4,8 +4,8 @@ const path = require('node:path');
 
 const TOTAL_NUMBERS = 150000;
 const SHARD_SIZE = 1000;
-const PRESERVE_LEGACY_UNTIL = 10000;
-const WINNING_NUMBER_COUNT = 10000;
+const PRESERVE_LEGACY_UNTIL = 50;
+const WINNING_NUMBER_COUNT = 50;
 const ADDITIONAL_PRIZE_POOL_CENTS = 1000000;
 const MAIN_PRIZE_NAME = 'Honda XRE 190 2026';
 const AVAILABLE_STATUSES = new Set(['disponivel', undefined, null, '']);
@@ -113,7 +113,7 @@ async function readExistingPrizeAssignments(db) {
       numero: number,
       numeroFormatado: formatNumber(number),
       premioId: data.premioId || 'legado-sem-catalogo',
-      premioNome: data.premioNome || 'Prêmio legado — revisar antes da abertura',
+      premioNome: data.premioNome || 'Prêmio legado � revisar antes da abertura',
       premioTipo: data.premioTipo || 'legado',
       premioValorCents: Number.isInteger(Number(data.premioValorCents)) ? Number(data.premioValorCents) : null,
       isWinningNumber: true,
@@ -353,7 +353,7 @@ async function main() {
     winnerSource = 'manifest-preserved';
   }
 
-  // Completa até 10.000 cotas adicionais com números aleatórios. A XRE não
+  // Completa até 50 cotas adicionais com números aleatórios. A XRE não
   // entra aqui: ela será definida em `sorteios/xre` quando a meta for atingida.
   if (assignments.size > WINNING_NUMBER_COUNT) {
     throw new Error(`Foram encontrados ${assignments.size} vencedores; o limite é ${WINNING_NUMBER_COUNT} cotas adicionais.`);
@@ -364,7 +364,7 @@ async function main() {
     for (const number of fillers) {
       assignments.set(number, assignmentsFromNumbers([number]).get(number));
     }
-    winnerSource = `${winnerSource}-completed-to-10000`;
+    winnerSource = `${winnerSource}-completed-to-50`;
   }
 
   const shards = groupShards(available);
@@ -383,7 +383,7 @@ async function main() {
     additionalPrizeTotalCents: args.prizesFile ? prizePlan.additionalPrizeTotalCents : 0,
     apply: args.apply,
     ticketWriteMode: args.materializeTickets ? 'all-150000-documents' : 'sold-and-reserved-on-demand',
-    warning: 'A lista contém exatamente 10.000 cotas adicionais aleatórias; os prêmios podem ser definidos depois. A XRE permanece fora da lista e só pode ser sorteada aos 100%. Revise backup, regras, cotas e regulamento antes de aplicar.',
+    warning: 'A lista contém exatamente 50 cotas adicionais aleatórias; os prêmios podem ser definidos depois. A XRE permanece fora da lista e só pode ser sorteada aos 100%. Revise backup, regras, cotas e regulamento antes de aplicar.',
   };
 
   console.log(JSON.stringify(plan, null, 2));
