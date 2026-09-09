@@ -259,6 +259,11 @@ function selectCota(quantity, element) {
   updatePriceFromInput();
 }
 
+function handleCotaPurchase(quantity, element) {
+  selectCota(quantity, element);
+  handlePurchase();
+}
+
 function changeQty(delta) {
   const input = document.getElementById('input-qty');
   const current = Number(input?.value || 1);
@@ -268,6 +273,7 @@ function changeQty(delta) {
 
 window.updatePriceFromInput = updatePriceFromInput;
 window.selectCota = selectCota;
+window.handleCotaPurchase = handleCotaPurchase;
 window.changeQty = changeQty;
 window.copyPixCode = copyPixCode;
 window.handlePurchase = handlePurchase;
@@ -285,4 +291,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.btn-participar')?.addEventListener('click', handlePurchase);
   document.getElementById('copy-pix-button')?.addEventListener('click', copyPixCode);
   document.getElementById('btn-confirm-payment')?.addEventListener('click', confirmPayment);
+
+  const pendingQuantity = sessionStorage.getItem('quantidadeCotasPendente');
+  if (pendingQuantity && auth.currentUser) {
+    sessionStorage.removeItem('quantidadeCotasPendente');
+    const quantity = Number(pendingQuantity);
+    if (Number.isInteger(quantity) && quantity > 0) {
+      const input = document.getElementById('input-qty');
+      if (input) input.value = quantity;
+      updatePriceFromInput();
+      handlePurchase();
+    }
+  }
 });

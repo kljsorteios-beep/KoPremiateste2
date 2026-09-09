@@ -62,7 +62,7 @@
 
     <div class="card">
       <h2>Ganhadores de cotas adicionais</h2>
-      <p class="muted">Aqui aparecem separadamente os compradores de uma das 10.000 cotas adicionais premiadas. A XRE possui um registro próprio abaixo.</p>
+      <p class="muted">Aqui aparecem separadamente os compradores de uma das 50 cotas adicionais premiadas. A XRE possui um registro próprio abaixo.</p>
       <div class="actions"><button id="loadWinners">Carregar ganhadores</button></div>
       <div id="winnersStatus" class="muted"></div>
       <div class="table-wrap"><table id="winnersTable" hidden><thead><tr><th>Cota</th><th>Prêmio</th><th>Comprador</th><th>E-mail</th><th>Pedido</th><th>Data</th></tr></thead><tbody></tbody></table></div>
@@ -77,8 +77,8 @@
     </div>
 
     <div class="card">
-      <h2>Auditoria das 10.000 cotas</h2>
-      <p class="muted">Os 10.000 números premiados são exibidos em páginas de 500 para não travar o navegador. Use as setas para navegar entre as 20 páginas ou busque um número exato.</p>
+      <h2>Auditoria das 50 cotas</h2>
+      <p class="muted">Os 50 números premiados são exibidos para auditoria. Use a busca por número exato ou navegue pelas páginas.</p>
       <div class="pager">
         <input id="searchNumber" type="text" inputmode="numeric" placeholder="Buscar nº exato (ex: 1234)">
         <select id="pageSizeSelect"><option value="500" selected>500 por página</option><option value="200">200 por página</option><option value="1000">1000 por página</option></select>
@@ -126,11 +126,11 @@
       document.getElementById('status').textContent = currentState.status || '—';
       document.getElementById('targetInput').value = target || 150000;
       document.getElementById('statusInput').value = currentState.status || 'preparacao';
-      const eligible = sold >= target && currentState.status === 'encerrada';
+      const eligible = sold >= target;
       document.getElementById('drawXre').disabled = !eligible;
       document.getElementById('drawHelp').textContent = eligible
-        ? 'A campanha atingiu 100%. O sorteio pode ser executado uma única vez; o resultado ficará registrado para auditoria.'
-        : `Ainda bloqueado: ${sold.toLocaleString('pt-BR')} de ${target.toLocaleString('pt-BR')} vendidos e status “${currentState.status || '—'}”.`;
+        ? 'A campanha atingiu 100%. O sorteio é único e automático pela roleta: um número aleatório entre os compradores é escolhido e o resultado fica registrado para auditoria.'
+        : `Ainda bloqueado: ${sold.toLocaleString('pt-BR')} de ${target.toLocaleString('pt-BR')} vendidos. O sorteio da XRE acontece automaticamente quando o cotômetro atingir 100%.`;
     }
 
     async function saveConfig() {

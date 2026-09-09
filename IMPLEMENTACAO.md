@@ -4,7 +4,7 @@
 
 O projeto separa o frontend público da lógica crítica. O navegador não escolhe números, não altera status de cotas, não confirma pagamentos e não recebe a lista de números com prêmio. Ele solicita uma reserva e exibe o QR Code Pix retornado pelo backend.
 
-A campanha possui **150.000 números** e exatamente **10.000 cotas adicionais premiadas**. A Honda XRE 190 2026 é o prêmio principal e fica fora da coleção das 10.000; ela é sorteada em etapa separada quando a campanha atingir 100%. O fundo adicional de **R$ 10.000,00** é distribuído entre as 10.000 cotas conforme o plano de prêmios definido pelo administrador.
+A campanha possui **150.000 números** e exatamente **50 cotas adicionais premiadas**. A Honda XRE 190 2026 é o prêmio principal e fica fora da coleção das 50; ela não tem número reservado e é sorteada automaticamente entre os compradores quando o cotômetro atingir 100%. O fundo adicional de **R$ 10.000,00** é distribuído entre as 50 cotas conforme o plano de prêmios definido pelo administrador.
 
 A reserva usa transações atômicas e shards de disponibilidade no Firestore. O pedido fica com status `aguardando_pagamento` por 10 minutos. Quando o Mercado Pago envia um webhook autenticado, o backend consulta `/v1/payments/{id}`, valida `status: "approved"`, referência externa, valor e moeda, converte a reserva em compra definitiva, grava `compras/{pedidoId}`, atualiza os documentos de `cotas` e incrementa o cotômetro. Uma rotina agendada libera pedidos expirados.
 
@@ -18,8 +18,8 @@ A reserva usa transações atômicas e shards de disponibilidade no Firestore. O
 | `compra.js` | Cotômetro, menu autenticado, reserva, QR Code Pix, copia e cola e contador de 10 minutos. |
 | `functions/index.js` | Reserva atômica, Mercado Pago Pix, webhook autenticado, expiração, estado público, painel administrativo e gatilho de e-mail. |
 | `functions/package.json` | Dependências e scripts das Cloud Functions. |
-| `scripts/generate-raffle.js` | Geração dos 150.000 números e exatamente 10.000 vencedores adicionais, hashes e publicação opcional. A XRE fica fora da lista. |
-| `scripts/expand-firestore.js` | Normalização do Firestore, preservação/complementação até 10.000 vencedores adicionais e carga opcional do catálogo de prêmios. |
+| `scripts/generate-raffle.js` | Geração dos 150.000 números e exatamente 50 vencedores adicionais, hashes e publicação opcional. A XRE fica fora da lista. |
+| `scripts/expand-firestore.js` | Normalização do Firestore, preservação/complementação até 50 vencedores adicionais e carga opcional do catálogo de prêmios. |
 | `admin.html` | Configuração da meta/status, compras, ganhadores, auditoria das cotas e sorteio controlado da XRE. |
 | `firestore.rules` | Bloqueia manipulação direta de cotas, disponibilidade, pedidos, compras e prêmios pelo navegador. |
 | `firebase.json` | Hosting, Functions, regras e índices. |
@@ -34,7 +34,7 @@ A coleção `pedidos` guarda a reserva e o estado do pagamento. Os status princi
 
 A coleção `compras` contém somente pedidos confirmados e possui `uid`, dados básicos do comprador, `email`, `numeros`, `quantidade`, `totalCents`, `status`, `mercadopagoPaymentId` e `paidAt`. A área Minha Conta consulta os documentos filtrados pelo próprio UID e exibe os números formatados.
 
-A coleção `numerosPremiados` contém exatamente as 10.000 cotas adicionais, com `isWinningNumber: true` e `prizeCategory: adicional`. Cada documento pode ter `numero`, `numeroFormatado`, `premioId`, `premioNome`, `premioTipo`, `premioValorCents`, `status` e `generationId`. Os nomes e valores podem ficar pendentes até o administrador definir o plano. A XRE não deve ser inserida nessa coleção.
+A coleção `numerosPremiados` contém exatamente as 50 cotas adicionais, com `isWinningNumber: true` e `prizeCategory: adicional`. Cada documento pode ter `numero`, `numeroFormatado`, `premioId`, `premioNome`, `premioTipo`, `premioValorCents`, `status` e `generationId`. Os nomes e valores podem ficar pendentes até o administrador definir o plano. A XRE não deve ser inserida nessa coleção.
 
 A coleção `auditoria/rifa` guarda o conjunto confidencial de números com prêmio, seus hashes e metadados da geração. A função `getWinningNumbers` só responde a usuários reconhecidos como administradores. A coleção `numerosPremiados` e a auditoria continuam bloqueadas para o navegador público.
 
@@ -77,7 +77,7 @@ O status da entrega é salvo em `compras/{pedidoId}.confirmationEmail`. Os estad
 
 ## Arquivo explícito do plano de prêmios
 
-O script `scripts/expand-firestore.js` garante 10.000 vencedores adicionais aleatórios por padrão. Se alguns prêmios já estiverem definidos, crie localmente um arquivo JSON confidencial para completar o catálogo, por exemplo:
+O script `scripts/expand-firestore.js` garante 50 vencedores adicionais aleatórios por padrão. Se alguns prêmios já estiverem definidos, crie localmente um arquivo JSON confidencial para completar o catálogo, por exemplo:
 
 ```json
 [
@@ -108,7 +108,7 @@ export GOOGLE_APPLICATION_CREDENTIALS=/caminho/seguro/firebase-service-account.j
 node scripts/expand-firestore.js --prizes-file=/caminho/seguro/premios.json
 ```
 
-Se a coleção antiga `numerosPremiados` ainda contiver os 10.000 registros legados, não use `--apply` automaticamente. Primeiro faça a conferência. Para manter os registros antigos de forma explícita, use `--keep-existing-winners`; para remover a coleção antiga antes de cadastrar nenhum número, use somente depois do backup:
+Se a coleção antiga `numerosPremiados` ainda contiver os 10.000 registros legados (ou outro total diferente de 50), não use `--apply` automaticamente. Primeiro faça a conferência. Para manter os registros antigos de forma explícita, use `--keep-existing-winners`; para remover a coleção antiga antes de cadastrar nenhum número, use somente depois do backup:
 
 ```bash
 node scripts/expand-firestore.js --apply --clear-legacy-winners
@@ -118,18 +118,18 @@ O modo compacto não materializa 150.000 documentos `cotas`; esses documentos s�
 
 ## Geração local dos 150.000 números
 
-O comando abaixo gera os arquivos localmente, sem publicar, com 150.000 números e 10.000 vencedores adicionais:
+O comando abaixo gera os arquivos localmente, sem publicar, com 150.000 números e 50 vencedores adicionais:
 
 ```bash
 node scripts/generate-raffle.js --output=generated-raffle
-node scripts/validate-generated.js generated-raffle --expected-winners=10000
+node scripts/validate-generated.js generated-raffle --expected-winners=50
 ```
 
-Se for necessário gerar novamente a lista, mantenha `--winners=10000` e revise o resultado. A XRE continua separada. O fundo adicional pode ser informado em centavos:
+Se for necessário gerar novamente a lista, mantenha `--winners=50` e revise o resultado. A XRE continua separada. O fundo adicional pode ser informado em centavos:
 
 ```bash
 node scripts/generate-raffle.js \
-  --winners=10000 \
+  --winners=50 \
   --prizePoolCents=1000000 \
   --publish \
   --output=generated-raffle

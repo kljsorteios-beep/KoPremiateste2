@@ -162,23 +162,65 @@
     </footer>
 
     <script type="module">
-import { auth, functions, httpsCallable, onAuthStateChanged } from './firebase-client.js';
-import { db } from './firebase-client.js';
+        import { auth, functions, httpsCallable, onAuthStateChanged } from './firebase-client.js';
+
+        const getPublicRaffleState = httpsCallable(functions, 'getPublicRaffleState');
 
         let currentMode = 'xre';
         let isSpinning = false;
         let rotation = 0;
 
+        const statsDisplay = () => document.getElementById('stats-display');
+        const spinBtn = () => document.getElementById('btn-spin');
+
+        function padNumber(value) {
+            return String(value).padStart(6, '0');
+        }
+
         window.setMode = (mode) => {
             currentMode = mode;
             document.getElementById('mode-xre').classList.toggle('active', mode === 'xre');
             document.getElementById('mode-adicional').classList.toggle('active', mode === 'adicional');
+            refreshStats();
         };
 
-        async function spinWheel() {
+        async function refreshStats() {
+            try {
+                const res = await getPublicRaffleState();
+                const data = res.data || {};
+                const sold = Number(data.soldNumbers || 0);
+                const target = Number(data.targetSoldNumbers || 0);
+                const percent = target ? Math.min(100, Math.round((sold / target) * 100)) : 0;
+                const isReached = target > 0 && sold >= target;
+                const el = statsDisplay();
+                if (el) {
+                    el.style.display = 'block';
+                    el.innerHTML = currentMode === 'xre'
+                        ? (isReached
+                            ? 'Cot&ocirc;metro: <span>100%</span> &mdash; vendas conclu&iacute;das. O sorteio da XRE &eacute; autom&aacute;tico: um n&uacute;mero aleat&oacute;rio entre os compradores ser&aacute; sorteado.'
+                            : `Cot&ocirc;metro: <span>${sold.toLocaleString('pt-BR')} / ${target.toLocaleString('pt-BR')}</span> (${percent}%). O sorteio da XRE acontece automaticamente ao atingir 100%.`)
+                        : 'Sorteio adicional (manual): sorteia um dos ganhadores de cotas premiadas j&aacute; cadastrados.';
+                }
+                return { sold, target, isReached, percent };
+            } catch (e) {
+                return { sold: 0, target: 0, isReached: false, percent: 0 };
+            }
+        }
+
+        async function checkAutoDraw() {
+            const state = await refreshStats();
+            if (currentMode === 'xre' && state.isReached) {
+                spinBtn().textContent = 'SORTEIO AUTOMÁTICO';
+                await spinWheel({ auto: true });
+            } else {
+                spinBtn().textContent = 'GIRAR ROLETA';
+            }
+        }
+
+        async function spinWheel(opts = {}) {
             if (isSpinning) return;
 
-            const btn = document.getElementById('btn-spin');
+            const btn = spinBtn();
             const wheel = document.getElementById('wheel');
 
             try {
@@ -186,40 +228,48 @@ import { db } from './firebase-client.js';
                 isSpinning = true;
 
                 let winnerData;
+                let alreadyDrawn = false;
+
                 if (currentMode === 'xre') {
                     const res = await httpsCallable(functions, 'drawXreWinner')();
                     winnerData = res.data.winner;
+                    alreadyDrawn = Boolean(res.data.alreadyDrawn);
                 } else {
                     const res = await httpsCallable(functions, 'getRandomBoughtWinningQuote')();
                     winnerData = res.data.winner;
                 }
 
-                // Animation logic: spins 5-10 times + random offset
+                if (alreadyDrawn || opts.noAnimation) {
+                    showResult(winnerData, alreadyDrawn);
+                    isSpinning = false;
+                    btn.disabled = false;
+                    return;
+                }
+
                 const extraSpins = Math.floor(Math.random() * 5) + 5;
                 const randomDegree = Math.floor(Math.random() * 360);
                 rotation += (extraSpins * 360) + randomDegree;
-
                 wheel.style.transform = `rotate(${rotation}deg)`;
 
                 setTimeout(() => {
-                    showResult(winnerData);
+                    showResult(winnerData, false);
                     isSpinning = false;
                     btn.disabled = false;
                 }, 4000);
-
             } catch (error) {
-                alert("Erro ao realizar sorteio: " + error.message);
+                alert('Erro ao realizar sorteio: ' + error.message);
                 isSpinning = false;
                 btn.disabled = false;
             }
         }
 
-        function showResult(winner) {
+        function showResult(winner, alreadyDrawn) {
             const overlay = document.getElementById('result-overlay');
+            const title = document.getElementById('res-title');
             const details = document.getElementById('res-details');
-
+            title.textContent = alreadyDrawn ? 'Resultado da XRE' : 'Temos um Ganhador!';
             details.innerHTML = `
-                <strong>N&uacute;mero:</strong> ${String(winner.numero).padStart(6, '0')}<br>
+                <strong>N&uacute;mero:</strong> ${padNumber(winner.numero)}<br>
                 <strong>Nome:</strong> ${winner.comprador || winner.nome || 'N&atilde;o informado'}<br>
                 <strong>E-mail:</strong> ${winner.email || 'N&atilde;o informado'}
             `;
@@ -232,21 +282,24 @@ import { db } from './firebase-client.js';
 
         window.spinWheel = spinWheel;
 
-        // Auth protection
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                window.location.href = "login.html";
+                window.location.href = 'login.html';
                 return;
             }
+            let isAdmin = false;
             try {
                 const adminCheck = await httpsCallable(functions, 'checkAdminStatus')();
-                if (!adminCheck.data.isAdmin) {
-                    alert("Acesso negado. Esta p&aacute;gina &eacute; exclusiva para administradores.");
-                    window.location.href = "perfil.html";
-                }
+                isAdmin = Boolean(adminCheck.data.isAdmin);
             } catch (e) {
-                window.location.href = "perfil.html";
+                isAdmin = false;
             }
+            if (!isAdmin) {
+                alert('Acesso negado. Esta página é exclusiva para administradores.');
+                window.location.href = 'perfil.html';
+                return;
+            }
+            await checkAutoDraw();
         });
     </script>
 </body>

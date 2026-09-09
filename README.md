@@ -2,7 +2,7 @@
 
 Site da campanha com Firebase Authentication, Firestore e Cloud Functions para reserva de números e integração Mercado Pago Pix.
 
-A campanha utiliza 150.000 números, dos quais exatamente 10.000 cotas adicionais são reservadas para premiação. A Honda XRE 190 2026 é o prêmio principal e fica fora dessas 10.000 cotas; ela será sorteada separadamente quando a campanha atingir 100%. O fundo adicional de R$ 10.000,00 é dividido entre as cotas adicionais conforme o plano de prêmios definido pelo administrador.
+A campanha utiliza 150.000 números, dos quais exatamente 50 cotas adicionais são reservadas para premiação. A Honda XRE 190 2026 é o prêmio principal e fica fora dessas 50 cotas; ela não tem número reservado e é sorteada automaticamente entre os compradores quando o cotômetro atingir 100%. O fundo adicional de R$ 10.000,00 é dividido entre as 50 cotas adicionais conforme o plano de prêmios definido pelo administrador.
 
 ## Desenvolvimento local
 
@@ -21,7 +21,7 @@ npm --prefix functions run lint
 
 ## Modelo de prêmios
 
-O gerador cria exatamente 10.000 cotas vencedoras adicionais por padrão, com `isWinningNumber: true` e `prizeCategory: adicional`. O mapa permanece confidencial e os nomes/valores podem ser definidos posteriormente. A XRE não é gravada nessa lista; seu resultado fica em `sorteios/xre` e `ganhadores/xre` após 100%.
+O gerador cria exatamente 50 cotas vencedoras adicionais por padrão, com `isWinningNumber: true` e `prizeCategory: adicional`. O mapa permanece confidencial e os nomes/valores podem ser definidos posteriormente. A XRE não é gravada nessa lista; seu resultado fica em `sorteios/xre` e `ganhadores/xre` e é gerado automaticamente (sem número reservado) quando as vendas atingem 100%.
 
 ## Expansão segura do Firestore
 
