@@ -15,7 +15,7 @@ const MERCADOPAGO_WEBHOOK_SECRET = defineSecret('MERCADOPAGO_WEBHOOK_SECRET');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
 const TOTAL_NUMBERS_DEFAULT = 150000;
-const WINNING_NUMBERS_DEFAULT = 10000;
+const WINNING_NUMBERS_DEFAULT = 50;
 const ADDITIONAL_PRIZE_POOL_CENTS_DEFAULT = 1000000;
 const PRICE_PER_NUMBER_CENTS_DEFAULT = 50;
 const RESERVATION_MINUTES_DEFAULT = 10;
@@ -262,8 +262,9 @@ async function markOrderPaid(orderId, orderData) {
       confirmadoEm: FieldValue.serverTimestamp()
     });
 
+    const newSoldCount = currentSold + (orderData.numeros?.length || 0);
     transaction.set(publicRef, {
-      soldNumbers: currentSold + (orderData.numeros?.length || 0)
+      soldNumbers: newSoldCount
     }, { merge: true });
   });
 
@@ -275,6 +276,80 @@ async function markOrderPaid(orderId, orderData) {
     });
   } catch (e) {
     logger.error('Não foi possível marcar cotas como vendidas', { orderId });
+  }
+
+  // Verifica se atingiu 100% para sorteio automático da XRE
+  try {
+    const publicSnap = await publicStateRef.get();
+    const state = publicSnap.exists ? publicSnap.data() : {};
+    const sold = Number(state.soldNumbers || 0);
+    const target = Number(state.targetSoldNumbers || TOTAL_NUMBERS_DEFAULT);
+    
+    if (sold >= target) {
+      const xreCheck = await db.doc('ganhadores/xre').get();
+      if (!xreCheck.exists) {
+        logger.info('100% atingido — iniciando sorteio automático da XRE');
+        await autoDrawXreWinner();
+      }
+    }
+  } catch (e) {
+    logger.warn('Erro ao verificar condição para sorteio automático da XRE', e);
+  }
+}
+
+async function autoDrawXreWinner() {
+  try {
+    const comprasSnap = await db.collection('compras').where('status', '==', 'pago').get();
+    if (comprasSnap.empty) {
+      logger.warn('Nenhuma compra paga para sorteio automático');
+      return;
+    }
+
+    const numbersByValue = new Map();
+    comprasSnap.docs.forEach((doc) => {
+      (doc.data().numeros || []).forEach((numero) => {
+        if (!numbersByValue.has(numero)) numbersByValue.set(numero, doc);
+      });
+    });
+
+    if (numbersByValue.size === 0) {
+      logger.warn('Nenhum número disponível para sorteio automático');
+      return;
+    }
+
+    const entries = [...numbersByValue.entries()];
+    const [numeroSorteado, randomDoc] = entries[crypto.randomInt(entries.length)];
+    const winnerData = randomDoc.data();
+
+    const result = {
+      numero: numeroSorteado,
+      comprador: winnerData.nome || 'Comprador não informado',
+      email: winnerData.email || 'E-mail não informado',
+      pedidoId: randomDoc.id,
+      sorteadoEm: FieldValue.serverTimestamp(),
+      autoDrawn: true
+    };
+
+    // Grava com trava transacional: se outro sorteio concorrente já registrou
+    // a XRE, este aborta e o resultado existente prevalece (sorteio é único).
+    await db.runTransaction(async (transaction) => {
+      const existing = await transaction.get(db.doc('sorteios/xre'));
+      if (existing.exists && existing.data()?.status === 'concluido') {
+        return;
+      }
+      transaction.set(db.doc('sorteios/xre'), {
+        ...result,
+        status: 'concluido'
+      });
+      transaction.set(db.collection('ganhadores').doc('xre'), {
+        ...result,
+        categoria: 'principal'
+      });
+    });
+
+    logger.info('Sorteio automático da XRE concluído', { numero: numeroSorteado, comprador: winnerData.nome });
+  } catch (e) {
+    logger.error('Erro no sorteio automático da XRE', e);
   }
 }
 
@@ -577,31 +652,35 @@ exports.mercadoPagoWebhook = onRequest({
 exports.drawXreWinner = onCall({ region: 'southamerica-east1' }, async (request) => {
   requireAdmin(request);
   try {
-    // 1. Verificação de Segurança: Só permite sortear se a meta for atingida e a campanha encerrada
+    // 1. Idempotência: se a XRE já foi sorteada, devolve o resultado existente
+    // em vez de sortear de novo (o sorteio é único e imutável).
+    const existingDraw = await db.doc('sorteios/xre').get();
+    if (existingDraw.exists && existingDraw.data()?.status === 'concluido') {
+      const saved = existingDraw.data();
+      return { status: 'concluido', winner: saved, alreadyDrawn: true };
+    }
+
+    // 2. Verificação de Segurança: o sorteio acontece automaticamente quando
+    // o cotômetro atinge 100%. Não existe número reservado para a XRE.
     const stateSnap = await publicStateRef.get();
     const state = stateSnap.exists ? stateSnap.data() : getConfigDefaults();
     const sold = Number(state.soldNumbers || 0);
     const configSnap = await raffleConfigRef.get();
     const configData = configSnap.exists ? configSnap.data() : getConfigDefaults();
     const target = Number(state.targetSoldNumbers ?? configData.targetSoldNumbers ?? TOTAL_NUMBERS_DEFAULT);
-    const status = state.status || configData.status || 'preparacao';
-
-    if (status !== 'encerrada') {
-      throw new HttpsError('failed-precondition', `Sorteio bloqueado: Campanha não encerrada (status: "${status}").`);
-    }
 
     if (sold < target) {
       throw new HttpsError('failed-precondition', `Sorteio bloqueado: Meta não atingida (${sold}/${target} vendidos).`);
     }
 
-    // 2. Buscar todas as compras pagas
+    // 3. Buscar todas as compras pagas
     const comprasSnap = await db.collection('compras').where('status', '==', 'pago').get();
 
     if (comprasSnap.empty) {
       throw new HttpsError('not-found', 'Nenhuma compra paga encontrada para realizar o sorteio.');
     }
 
-    // 3. Sorteio ponderado por NÚMERO: cada cota tem a mesma chance,
+    // 4. Sorteio ponderado por NÚMERO: cada cota tem a mesma chance,
     // então quem tem 1000 cotas tem 1000x mais chances que quem tem 1.
     // Números repetidos (caso legado) são deduplicados para não inflar a chance.
     const numbersByValue = new Map();
@@ -624,7 +703,7 @@ exports.drawXreWinner = onCall({ region: 'southamerica-east1' }, async (request)
       sorteadoEm: FieldValue.serverTimestamp()
     };
 
-    // 3. Gravar resultado para auditoria (Imutável)
+    // 5. Gravar resultado para auditoria (Imutável)
     await db.doc('sorteios/xre').set({
       ...result,
       status: 'concluido'
