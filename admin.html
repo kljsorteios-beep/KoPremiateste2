@@ -32,7 +32,6 @@
   <main>
     <div class="card">
       <h1>Painel administrativo</h1>
-      <p class="muted">Área restrita. A autorização é conferida no backend por UID/claim de administrador.</p>
       <div id="message" class="message" hidden></div>
       <div class="stats">
         <div class="stat"><small>Vendidos</small><strong id="sold">0</strong></div>
@@ -49,7 +48,6 @@
         <div><label for="statusInput">Status</label><select id="statusInput"><option value="preparacao">Preparação</option><option value="aberta">Aberta</option><option value="encerrada">Encerrada</option></select></div>
       </div>
       <div class="actions"><button id="saveConfig">Salvar configuração</button><button id="recountSold" class="secondary">Recalcular vendidos</button></div>
-      <p class="muted">“Recalcular vendidos” soma as compras pagas reais e corrige o contador (use após excluir documentos de teste manualmente).</p>
     </div>
 
     <div class="card">
@@ -61,8 +59,7 @@
     </div>
 
     <div class="card">
-      <h2>Ganhadores de cotas adicionais</h2>
-      <p class="muted">Aqui aparecem separadamente os compradores de uma das 50 cotas adicionais premiadas. A XRE possui um registro próprio abaixo.</p>
+      <h2>Ganhadores de cotas premiadas</h2>
       <div class="actions"><button id="loadWinners">Carregar ganhadores</button></div>
       <div id="winnersStatus" class="muted"></div>
       <div class="table-wrap"><table id="winnersTable" hidden><thead><tr><th>Cota</th><th>Prêmio</th><th>Comprador</th><th>E-mail</th><th>Pedido</th><th>Data</th></tr></thead><tbody></tbody></table></div>
@@ -78,7 +75,6 @@
 
     <div class="card">
       <h2>Auditoria das 50 cotas</h2>
-      <p class="muted">Os 50 números premiados são exibidos para auditoria. Use a busca por número exato ou navegue pelas páginas.</p>
       <div class="pager">
         <input id="searchNumber" type="text" inputmode="numeric" placeholder="Buscar nº exato (ex: 1234)">
         <select id="pageSizeSelect"><option value="500" selected>500 por página</option><option value="200">200 por página</option><option value="1000">1000 por página</option></select>
@@ -130,7 +126,7 @@
       document.getElementById('drawXre').disabled = !eligible;
       document.getElementById('drawHelp').textContent = eligible
         ? 'A campanha atingiu 100%. O sorteio é único e automático pela roleta: um número aleatório entre os compradores é escolhido e o resultado fica registrado para auditoria.'
-        : `Ainda bloqueado: ${sold.toLocaleString('pt-BR')} de ${target.toLocaleString('pt-BR')} vendidos. O sorteio da XRE acontece automaticamente quando o cotômetro atingir 100%.`;
+        : `Ainda bloqueado: ${sold.toLocaleString('pt-BR')} de ${target.toLocaleString('pt-BR')} vendidos.`;
     }
 
     async function saveConfig() {
@@ -177,7 +173,7 @@
           const row = document.createElement('tr');
           row.append(cell(String(winner.numero).padStart(6, '0')), cell(winner.premioNome || 'Prêmio a definir'), cell(winner.comprador), cell(winner.email), cell(winner.pedidoId), cell(formatDate(winner.confirmadoEm || winner.sorteadoEm))); rows.appendChild(row);
         }
-        document.getElementById('winnersStatus').textContent = `${rows.children.length.toLocaleString('pt-BR')} ganhadores adicionais carregados (${all.length - adicionais.length} registro(s) da XRE ignorados nesta tabela).`;
+        document.getElementById('winnersStatus').textContent = `${rows.children.length.toLocaleString('pt-BR')} ganhadores premiados carregados.`;
         if (xre) {
           document.getElementById('xreResult').textContent = `XRE já sorteada: cota ${String(xre.numero || '').padStart(6, '0')} — ${xre.comprador || ''} — ${xre.email || ''}. Apague ganhadores/xre + sorteios/xre para limpar teste.`;
         } else {
